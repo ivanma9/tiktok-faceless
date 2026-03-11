@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TikTok OAuth Callback</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 80px auto; padding: 0 20px; text-align: center; }
+        code { background: #f0f0f0; padding: 8px 16px; border-radius: 4px; display: block; margin: 20px 0; word-break: break-all; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <h1>Authorization Complete</h1>
+    <p>Copy this authorization code and paste it into your terminal:</p>
+    <code id="code">Loading...</code>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const error = params.get('error');
+        const el = document.getElementById('code');
+        if (error) {
+            el.textContent = 'Error: ' + error + ' - ' + (params.get('error_description') || '');
+        } else if (code) {
+            el.textContent = code;
+        } else {
+            el.textContent = 'No authorization code received.';
+        }
+    </script>
+</body>
+</html>

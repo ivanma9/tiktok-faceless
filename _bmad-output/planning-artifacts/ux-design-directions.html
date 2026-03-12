@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tiktok-faceless — UX Design Directions</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --zinc-950: #09090b;
+    --zinc-900: #18181b;
+    --zinc-850: #1c1c1f;
+    --zinc-800: #27272a;
+    --zinc-700: #3f3f46;
+    --zinc-600: #52525b;
+    --zinc-400: #a1a1aa;
+    --zinc-300: #d4d4d8;
+    --zinc-100: #f4f4f5;
+    --zinc-50:  #fafafa;
+    --indigo-500: #6366f1;
+    --indigo-400: #818cf8;
+    --indigo-300: #a5b4fc;
+    --emerald-500: #10b981;
+    --emerald-400: #34d399;
+    --amber-500: #f59e0b;
+    --rose-500: #f43f5e;
+    --rose-400: #fb7185;
+  }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #0d0d10; color: var(--zinc-50); }
+
+  /* Nav */
+  .direction-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(9,9,11,0.95); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--zinc-800);
+    display: flex; align-items: center; gap: 8px; padding: 12px 24px;
+    flex-wrap: wrap;
+  }
+  .direction-nav span { color: var(--zinc-400); font-size: 12px; margin-right: 8px; }
+  .dir-btn {
+    padding: 6px 14px; border-radius: 6px; border: 1px solid var(--zinc-700);
+    background: var(--zinc-900); color: var(--zinc-300); font-size: 13px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .dir-btn:hover { border-color: var(--indigo-500); color: var(--zinc-50); }
+  .dir-btn.active { background: var(--indigo-500); border-color: var(--indigo-500); color: #fff; }
+
+  .direction { display: none; padding-top: 60px; min-height: 100vh; }
+  .direction.active { display: block; }
+
+  /* ─── SHARED COMPONENTS ─── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .badge-tournament { background: rgba(99,102,241,0.15); color: var(--indigo-300); border: 1px solid rgba(99,102,241,0.3); }
+  .badge-commit     { background: rgba(16,185,129,0.12); color: var(--emerald-400); border: 1px solid rgba(16,185,129,0.3); }
+  .badge-healthy    { background: rgba(16,185,129,0.12); color: var(--emerald-400); border: 1px solid rgba(16,185,129,0.25); }
+  .badge-warning    { background: rgba(245,158,11,0.12); color: var(--amber-500);   border: 1px solid rgba(245,158,11,0.3); }
+  .badge-critical   { background: rgba(244,63,94,0.12);  color: var(--rose-400);    border: 1px solid rgba(244,63,94,0.3); }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .dot-green  { background: var(--emerald-500); box-shadow: 0 0 6px var(--emerald-500); }
+  .dot-amber  { background: var(--amber-500); }
+  .dot-red    { background: var(--rose-500); box-shadow: 0 0 6px var(--rose-500); }
+
+  /* Sparkline SVG */
+  .sparkline { width: 80px; height: 28px; }
+
+  /* Card */
+  .card {
+    background: var(--zinc-900); border: 1px solid var(--zinc-800);
+    border-radius: 10px; padding: 16px;
+  }
+  .card-label { font-size: 11px; color: var(--zinc-400); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .card-value { font-size: 24px; font-weight: 700; color: var(--zinc-50); font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .card-sub   { font-size: 12px; color: var(--zinc-400); margin-top: 4px; }
+  .card-trend-up   { color: var(--emerald-400); }
+  .card-trend-down { color: var(--rose-400); }
+  .card-footer { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--zinc-800); font-size: 11px; color: var(--zinc-600); }
+
+  /* Alert banner */
+  .alert-banner {
+    border-radius: 8px; padding: 12px 16px;
+    display: flex; align-items: flex-start; gap: 12px; font-size: 13px;
+  }
+  .alert-critical { background: rgba(244,63,94,0.08); border: 1px solid rgba(244,63,94,0.25); color: var(--zinc-100); }
+  .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .alert-title { font-weight: 600; margin-bottom: 2px; }
+  .alert-desc { color: var(--zinc-400); font-size: 12px; }
+
+  /* Pipeline steps */
+  .pipeline {
+    display: flex; align-items: center; gap: 0; flex-wrap: wrap;
+  }
+  .pipe-step {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--zinc-900); border: 1px solid var(--zinc-800);
+    border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 500;
+    white-space: nowrap;
+  }
+  .pipe-arrow { color: var(--zinc-700); font-size: 16px; padding: 0 4px; }
+  .pipe-running { border-color: rgba(99,102,241,0.4); }
+  .pipe-done    { border-color: rgba(16,185,129,0.3); }
+
+  /* Table */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { text-align: left; padding: 8px 12px; color: var(--zinc-400); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--zinc-800); }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--zinc-800); color: var(--zinc-300); vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .mono { font-variant-numeric: tabular-nums; font-family: 'SF Mono', 'Fira Code', monospace; }
+
+  /* ─────────────────────────────────────────────────
+     DIRECTION 1: Command Center (Linear-inspired)
+  ───────────────────────────────────────────────── */
+  #d1 { background: var(--zinc-950); }
+  .d1-layout { display: flex; min-height: calc(100vh - 60px); }
+  .d1-sidebar {
+    width: 220px; flex-shrink: 0; background: var(--zinc-900);
+    border-right: 1px solid var(--zinc-800);
+    padding: 20px 0; display: flex; flex-direction: column; gap: 2px;
+    position: sticky; top: 60px; height: calc(100vh - 60px);
+  }
+  .d1-sidebar-logo { padding: 0 16px 20px; font-weight: 700; font-size: 14px; color: var(--zinc-50); border-bottom: 1px solid var(--zinc-800); margin-bottom: 12px; }
+  .d1-sidebar-logo span { color: var(--indigo-400); }
+  .d1-nav-item {
+    padding: 7px 16px; font-size: 13px; color: var(--zinc-400);
+    cursor: pointer; border-radius: 6px; margin: 0 8px;
+    display: flex; align-items: center; gap: 8px; transition: all 0.1s;
+  }
+  .d1-nav-item:hover { background: var(--zinc-800); color: var(--zinc-100); }
+  .d1-nav-item.active { background: rgba(99,102,241,0.12); color: var(--indigo-300); }
+  .d1-nav-icon { width: 16px; text-align: center; font-size: 14px; }
+  .d1-topbar {
+    background: var(--zinc-900); border-bottom: 1px solid var(--zinc-800);
+    padding: 10px 24px; display: flex; align-items: center; gap: 16px;
+    font-size: 12px; color: var(--zinc-400);
+  }
+  .d1-topbar-phase { font-weight: 600; color: var(--zinc-50); display: flex; align-items: center; gap: 8px; }
+  .d1-topbar-divider { color: var(--zinc-700); }
+  .d1-main { flex: 1; padding: 24px; overflow-y: auto; }
+  .d1-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--zinc-600); margin-bottom: 12px; font-weight: 600; }
+  .d1-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .d1-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
+  .d1-pipeline-card { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 10px; padding: 16px; margin-bottom: 24px; }
+  .d1-table-card { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 10px; overflow: hidden; }
+  .d1-table-header { padding: 14px 16px; border-bottom: 1px solid var(--zinc-800); font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+  .d1-table-header span { color: var(--zinc-400); font-size: 12px; font-weight: 400; }
+
+  /* ─────────────────────────────────────────────────
+     DIRECTION 2: Signal Board (Exception-first)
+  ───────────────────────────────────────────────── */
+  #d2 { background: #0a0a0d; }
+  .d2-topbar {
+    background: var(--zinc-950); border-bottom: 1px solid var(--zinc-800);
+    padding: 0 24px; display: flex; align-items: stretch; height: 52px;
+  }
+  .d2-topbar-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; padding-right: 24px; border-right: 1px solid var(--zinc-800); margin-right: 24px; }
+  .d2-topbar-brand .logo-mark { width: 28px; height: 28px; background: var(--indigo-500); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .d2-topbar-items { display: flex; align-items: center; gap: 20px; flex: 1; }
+  .d2-topbar-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--zinc-400); }
+  .d2-topbar-item strong { color: var(--zinc-50); font-size: 13px; }
+  .d2-topbar-sep { color: var(--zinc-700); }
+  .d2-topbar-time { margin-left: auto; font-size: 11px; color: var(--zinc-600); }
+  .d2-main { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+  .d2-alerts { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .d2-no-alerts { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 8px; padding: 10px 16px; font-size: 13px; color: var(--emerald-400); display: flex; align-items: center; gap: 8px; }
+  .d2-kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+  .d2-kpi { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 8px; padding: 14px; }
+  .d2-kpi-label { font-size: 10px; color: var(--zinc-500); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .d2-kpi-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .d2-kpi-trend { font-size: 11px; margin-top: 3px; }
+  .d2-kpi-spark { margin-top: 8px; }
+  .d2-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .d2-panel { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 10px; overflow: hidden; }
+  .d2-panel-head { padding: 12px 16px; border-bottom: 1px solid var(--zinc-800); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--zinc-400); display: flex; align-items: center; justify-content: space-between; }
+  .d2-panel-body { padding: 0; }
+
+  /* ─────────────────────────────────────────────────
+     DIRECTION 3: Revenue Focus (Stripe-inspired)
+  ───────────────────────────────────────────────── */
+  #d3 { background: var(--zinc-950); }
+  .d3-topbar {
+    background: var(--zinc-900); border-bottom: 1px solid var(--zinc-800);
+    padding: 12px 32px; display: flex; align-items: center; gap: 24px;
+    font-size: 13px;
+  }
+  .d3-brand { font-weight: 800; font-size: 16px; letter-spacing: -0.02em; }
+  .d3-brand span { color: var(--indigo-400); }
+  .d3-nav { display: flex; gap: 4px; margin-left: auto; }
+  .d3-nav-item { padding: 6px 12px; border-radius: 6px; font-size: 13px; color: var(--zinc-400); cursor: pointer; }
+  .d3-nav-item.active { background: var(--zinc-800); color: var(--zinc-50); }
+  .d3-hero { padding: 32px 32px 0; border-bottom: 1px solid var(--zinc-800); }
+  .d3-milestone { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .d3-milestone-icon { font-size: 18px; }
+  .d3-milestone strong { color: var(--indigo-300); }
+  .d3-revenue-hero { display: flex; align-items: flex-end; gap: 24px; margin-bottom: 24px; }
+  .d3-revenue-big { font-size: 48px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .d3-revenue-meta { padding-bottom: 8px; }
+  .d3-revenue-label { font-size: 12px; color: var(--zinc-400); margin-bottom: 4px; }
+  .d3-revenue-change { font-size: 14px; color: var(--emerald-400); font-weight: 600; }
+  .d3-phase-strip { display: flex; align-items: center; gap: 32px; padding-bottom: 20px; }
+  .d3-phase-item { font-size: 12px; color: var(--zinc-400); }
+  .d3-phase-item strong { color: var(--zinc-50); display: block; font-size: 14px; margin-top: 2px; }
+  .d3-main { padding: 24px 32px; }
+  .d3-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .d3-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+
+  /* ─────────────────────────────────────────────────
+     DIRECTION 4: Pipeline View (Ops-first)
+  ───────────────────────────────────────────────── */
+  #d4 { background: #060608; }
+  .d4-topbar {
+    background: rgba(9,9,11,0.98); border-bottom: 1px solid var(--zinc-800);
+    padding: 0 24px; height: 48px; display: flex; align-items: center; gap: 20px;
+    font-size: 12px;
+  }
+  .d4-brand { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; padding-right: 20px; border-right: 1px solid var(--zinc-800); }
+  .d4-status-dot-group { display: flex; align-items: center; gap: 6px; }
+  .d4-ts { margin-left: auto; color: var(--zinc-600); font-size: 11px; }
+  .d4-main { padding: 20px 24px; }
+  .d4-pipeline-section { background: var(--zinc-900); border: 1px solid var(--zinc-800); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .d4-pipeline-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--zinc-500); margin-bottom: 16px; font-weight: 600; }
+  .d4-pipeline-visual {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0;
+    position: relative;
+  }
+  .d4-agent {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 16px 8px; position: relative;
+  }
+  .d4-agent::after {
+    content: '→'; position: absolute; right: -8px; top: 50%; transform: translateY(-50%);
+    color: var(--zinc-700); font-size: 18px; z-index: 1;
+  }
+  .d4-agent:last-child::after { display: none; }
+  .d4-agent-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; border: 2px solid;
+  }
+  .d4-agent-icon.done    { background: rgba(16,185,129,0.1);  border-color: rgba(16,185,129,0.4); }
+  .d4-agent-icon.running { background: rgba(99,102,241,0.1);  border-color: rgba(99,102,241,0.5); animation: pulse 2s infinite; }
+  .d4-agent-icon.waiting { background: rgba(255,255,255,0.03); border-color: var(--zinc-700); }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); } 50% { box-shadow: 0 0 0 8px rgba(99,102,241,0); } }
+  .d4-agent-name { font-size: 11px; color: var(--zinc-400); text-align: center; }
+  .d4-agent-status { font-size: 10px; }
+  .d4-kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  .d4-suppression { background: rgba(244,63,94,0.06); border: 1px solid rgba(244,63,94,0.2); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .d4-supp-header { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--rose-400); margin-bottom: 8px; }
+  .d4-supp-detail { font-size: 12px; color: var(--zinc-400); }
+  .d4-supp-metric { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
+  .d4-supp-metric:last-child { border-bottom: none; }
+
+  /* Label strip for direction descriptions */
+  .dir-label {
+    background: var(--zinc-900); border-bottom: 1px solid var(--zinc-800);
+    padding: 10px 24px; font-size: 12px; color: var(--zinc-400);
+    display: flex; align-items: center; gap: 16px;
+  }
+  .dir-label strong { color: var(--zinc-200); font-size: 13px; }
+  .dir-tag { background: var(--zinc-800); border-radius: 4px; padding: 2px 8px; font-size: 11px; color: var(--zinc-400); }
+</style>
+</head>
+<body>
+
+<!-- Direction Nav -->
+<nav class="direction-nav">
+  <span>Design Direction:</span>
+  <button class="dir-btn active" onclick="showDir(1)">① Command Center</button>
+  <button class="dir-btn" onclick="showDir(2)">② Signal Board</button>
+  <button class="dir-btn" onclick="showDir(3)">③ Revenue Focus</button>
+  <button class="dir-btn" onclick="showDir(4)">④ Pipeline View</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     DIRECTION 1: Command Center
+════════════════════════════════════════════ -->
+<section id="d1" class="direction active">
+  <div class="dir-label">
+    <strong>① Command Center</strong>
+    <span class="dir-tag">Sidebar nav</span>
+    <span class="dir-tag">Persistent sidebar</span>
+    <span class="dir-tag">Linear-inspired density</span>
+    <span style="margin-left:auto;font-size:11px;">Phase + status in top bar · 4-column KPI grid · Sidebar anchors · Video table</span>
+  </div>
+  <div class="d1-layout">
+    <!-- Sidebar -->
+    <aside class="d1-sidebar">
+      <div class="d1-sidebar-logo">⚡ tiktok<span>-faceless</span></div>
+      <div class="d1-nav-item active"><span class="d1-nav-icon">◎</span> Overview</div>
+      <div class="d1-nav-item"><span class="d1-nav-icon">💰</span> Revenue</div>
+      <div class="d1-nav-item"><span class="d1-nav-icon">⚙</span> Pipeline</div>
+      <div class="d1-nav-item"><span class="d1-nav-icon">📊</span> Analytics</div>
+      <div class="d1-nav-item"><span class="d1-nav-icon">🚨</span> Suppression</div>
+      <div class="d1-nav-item"><span class="d1-nav-icon">🎬</span> Videos</div>
+    </aside>
+
+    <!-- Main -->
+    <div style="flex:1; overflow-y:auto;">
+      <!-- Top bar -->
+      <div class="d1-topbar">
+        <div class="d1-topbar-phase">
+          <span class="badge badge-tournament">● Tournament</span>
+          Day 8 of 14
+        </div>
+        <span class="d1-topbar-divider">|</span>
+        <span><span class="dot dot-green" style="margin-right:5px;"></span>Pipeline running</span>
+        <span class="d1-topbar-divider">|</span>
+        <span>Last post: <strong style="color:var(--zinc-200)">23 min ago</strong></span>
+        <span class="d1-topbar-divider">|</span>
+        <span>Videos today: <strong style="color:var(--zinc-200)">4</strong></span>
+        <span style="margin-left:auto;font-size:11px;color:var(--zinc-600)">Updated 42s ago · Auto-refreshing</span>
+      </div>
+
+      <div class="d1-main">
+        <!-- KPI row -->
+        <div class="d1-section-title">Performance · Last 7 days</div>
+        <div class="d1-grid-4">
+          <div class="card">
+            <div class="card-label">Affiliate Revenue</div>
+            <div class="card-value">$247</div>
+            <div class="card-sub card-trend-up">↑ $62 vs last week</div>
+            <svg class="sparkline" style="margin-top:10px;" viewBox="0 0 80 28">
+              <polyline points="0,22 13,18 26,20 39,14 52,10 65,6 80,4" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div class="card-footer">Updated 42s ago</div>
+          </div>
+          <div class="card">
+            <div class="card-label">3s Retention</div>
+            <div class="card-value">43%</div>
+            <div class="card-sub card-trend-up">↑ 3pp · Target: 40%</div>
+            <svg class="sparkline" style="margin-top:10px;" viewBox="0 0 80 28">
+              <polyline points="0,18 13,20 26,16 39,14 52,12 65,10 80,8" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div class="card-footer">Updated 42s ago</div>
+          </div>
+          <div class="card">
+            <div class="card-label">Affiliate CTR</div>
+            <div class="card-value">2.1%</div>
+            <div class="card-sub card-trend-up">↑ 0.3pp · Target: 2%</div>
+            <svg class="sparkline" style="margin-top:10px;" viewBox="0 0 80 28">
+              <polyline points="0,24 13,22 26,20 39,18 52,16 65,14 80,12" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div class="card-footer">Updated 42s ago</div>
+          </div>
+          <div class="card">
+            <div class="card-label">FYP Reach Rate</div>
+            <div class="card-value">68%</div>
+            <div class="card-sub" style="color:var(--zinc-400)">→ Stable · No suppression</div>
+            <svg class="sparkline" style="margin-top:10px;" viewBox="0 0 80 28">
+              <polyline points="0,14 13,12 26,16 39,13 52,14 65,12 80,13" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div class="card-footer">Updated 42s ago</div>
+          </div>
+        </div>
+
+        <!-- Pipeline -->
+        <div class="d1-section-title">Agent Pipeline</div>
+        <div class="d1-pipeline-card">
+          <div class="pipeline" style="gap:6px; flex-wrap:wrap;">
+            <div class="pipe-step pipe-done"><span class="dot dot-green"></span> Research</div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step pipe-done"><span class="dot dot-green"></span> Script</div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step pipe-running"><span class="dot" style="background:var(--indigo-400);"></span> Production</div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step" style="opacity:0.4;"><span class="dot" style="background:var(--zinc-600);"></span> Publishing</div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-step" style="opacity:0.4;"><span class="dot" style="background:var(--zinc-600);"></span> Analytics</div>
+          </div>
+          <div style="margin-top:12px;font-size:12px;color:var(--zinc-500);">Production agent rendering video #4 · ETA ~3 min · No errors in last 48h</div>
+        </div>
+
+        <!-- Video table -->
+        <div class="d1-section-title">Recent Videos · Top by Revenue</div>
+        <div class="d1-table-card">
+          <div class="d1-table-header">Video performance <span>Last 10 videos</span></div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Video</th>
+                <th>Niche</th>
+                <th>Hook</th>
+                <th>3s Ret</th>
+                <th>15s Ret</th>
+                <th>CTR</th>
+                <th>Commission</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">"This $29 gadget…"</td>
+                <td>Home & Kitchen</td>
+                <td style="font-size:11px;color:var(--zinc-500);">Curiosity gap</td>
+                <td class="mono card-trend-up">52%</td>
+                <td class="mono card-trend-up">34%</td>
+                <td class="mono card-trend-up">3.1%</td>
+                <td class="mono" style="color:var(--emerald-400);font-weight:600;">$18.40</td>
+                <td><span class="badge badge-healthy">Promoted</span></td>
+              </tr>
+              <tr>
+                <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">"Everyone's buying…"</td>
+                <td>Home & Kitchen</td>
+                <td style="font-size:11px;color:var(--zinc-500);">Social proof</td>
+                <td class="mono card-trend-up">48%</td>
+                <td class="mono card-trend-up">29%</td>
+                <td class="mono card-trend-up">2.4%</td>
+                <td class="mono" style="color:var(--emerald-400);font-weight:600;">$11.20</td>
+                <td><span class="badge badge-healthy">Promoted</span></td>
+              </tr>
+              <tr>
+                <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">"Stop buying this..."</td>
+                <td>Fitness</td>
+                <td style="font-size:11px;color:var(--zinc-500);">Controversy</td>
+                <td class="mono" style="color:var(--amber-500);">31%</td>
+                <td class="mono" style="color:var(--amber-500);">18%</td>
+                <td class="mono" style="color:var(--amber-500);">0.9%</td>
+                <td class="mono" style="color:var(--zinc-500);">$0.80</td>
+                <td><span class="badge badge-warning">Kill (48h)</span></td>
+              </tr>
+              <tr>
+                <td style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">"Watch this before…"</td>
+                <td>Beauty</td>
+                <td style="font-size:11px;color:var(--zinc-500);">Curiosity gap</td>
+                <td class="mono" style="color:var(--zinc-400);">38%</td>
+                <td class="mono" style="color:var(--zinc-400);">22%</td>
+                <td class="mono" style="color:var(--zinc-400);">1.8%</td>
+                <td class="mono" style="color:var(--zinc-400);">$3.20</td>
+                <td><span class="badge badge-warning">Monitoring</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     DIRECTION 2: Signal Board
+════════════════════════════════════════════ -->
+<section id="d2" class="direction">
+  <div class="dir-label">
+    <strong>② Signal Board</strong>
+    <span class="dir-tag">Exception-first</span>
+    <span class="dir-tag">Anomalies at top</span>
+    <span class="dir-tag">Grafana-inspired</span>
+    <span style="margin-left:auto;font-size:11px;">Alerts hero · 5-column KPI strip · Pipeline + video table 50/50</span>
+  </div>
+
+  <!-- Top bar: single strip -->
+  <div class="d2-topbar">
+    <div class="d2-topbar-brand">
+      <div class="logo-mark">⚡</div>
+      tiktok-faceless
+    </div>
+    <div class="d2-topbar-items">
+      <div class="d2-topbar-item"><span class="badge badge-tournament">Tournament</span> <strong>Day 8 / 14</strong></div>
+      <span class="d2-topbar-sep">·</span>
+      <div class="d2-topbar-item"><span class="dot dot-green"></span> <strong>Pipeline OK</strong></div>
+      <span class="d2-topbar-sep">·</span>
+      <div class="d2-topbar-item">Last post <strong>23 min ago</strong></div>
+      <span class="d2-topbar-sep">·</span>
+      <div class="d2-topbar-item">Today: <strong>4 videos</strong></div>
+      <span class="d2-topbar-sep">·</span>
+      <div class="d2-topbar-item">48h kills: <strong>1</strong></div>
+    </div>
+    <div class="d2-topbar-time">⟳ 38s ago</div>
+  </div>
+
+  <div class="d2-main">
+    <!-- ALERTS ZONE -->
+    <div class="d2-alerts">
+      <!-- Show suppression scenario -->
+      <div class="alert-banner alert-critical">
+        <span class="alert-icon">🚨</span>
+        <div>
+          <div class="alert-title" style="color:var(--rose-400)">Suppression signal detected — FYP reach dropped 71%</div>
+          <div class="alert-desc">Account view velocity fell from 8,400/hr → 2,400/hr over the last 6h with no content change. Publishing volume reduced automatically. Monitoring.</div>
+        </div>
+        <span style="margin-left:auto;font-size:11px;color:var(--zinc-600);white-space:nowrap;">2h ago</span>
+      </div>
+    </div>
+
+    <!-- KPI strip -->
+    <div class="d2-kpi-row">
+      <div class="d2-kpi">
+        <div class="d2-kpi-label">Revenue · 7d</div>
+        <div class="d2-kpi-val" style="color:var(--emerald-400);">$247</div>
+        <div class="d2-kpi-trend card-trend-up">↑ $62 vs last week</div>
+        <div class="d2-kpi-spark">
+          <svg viewBox="0 0 80 24" width="80" height="24">
+            <polyline points="0,20 13,16 26,18 39,12 52,8 65,5 80,3" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="d2-kpi">
+        <div class="d2-kpi-label">3s Retention</div>
+        <div class="d2-kpi-val" style="color:var(--emerald-400);">43%</div>
+        <div class="d2-kpi-trend card-trend-up">↑ 3pp · Target 40%</div>
+        <div class="d2-kpi-spark">
+          <svg viewBox="0 0 80 24" width="80" height="24">
+            <polyline points="0,18 13,16 26,14 39,12 52,10 65,8 80,6" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="d2-kpi">
+        <div class="d2-kpi-label">15s Retention</div>
+        <div class="d2-kpi-val" style="color:var(--zinc-200);">28%</div>
+        <div class="d2-kpi-trend" style="color:var(--zinc-500);">→ Flat · Target 25%</div>
+        <div class="d2-kpi-spark">
+          <svg viewBox="0 0 80 24" width="80" height="24">
+            <polyline points="0,14 13,12 26,15 39,13 52,14 65,12 80,13" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="d2-kpi">
+        <div class="d2-kpi-label">Affiliate CTR</div>
+        <div class="d2-kpi-val" style="color:var(--emerald-400);">2.1%</div>
+        <div class="d2-kpi-trend card-trend-up">↑ 0.3pp · Target 2%</div>
+        <div class="d2-kpi-spark">
+          <svg viewBox="0 0 80 24" width="80" height="24">
+            <polyline points="0,22 13,20 26,18 39,16 52,14 65,12 80,10" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="d2-kpi">
+        <div class="d2-kpi-label">FYP Reach</div>
+        <div class="d2-kpi-val" style="color:var(--rose-400);">41%</div>
+        <div class="d2-kpi-trend card-trend-down">↓ 27pp · Suppressed</div>
+        <div class="d2-kpi-spark">
+          <svg viewBox="0 0 80 24" width="80" height="24">
+            <polyline points="0,4 13,5 26,6 39,4 52,8 65,16 80,22" fill="none" stroke="#f43f5e" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: Pipeline + Videos -->
+    <div class="d2-bottom">
+      <div class="d2-panel">
+        <div class="d2-panel-head">Agent Pipeline <span class="badge badge-healthy" style="font-size:10px;">All Running</span></div>
+        <div class="d2-panel-body" style="padding:14px;">
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+              <span style="display:flex;align-items:center;gap:8px;"><span class="dot dot-green"></span> Research Agent</span>
+              <span style="color:var(--zinc-500);">3 products queued</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+              <span style="display:flex;align-items:center;gap:8px;"><span class="dot dot-green"></span> Script Agent</span>
+              <span style="color:var(--zinc-500);">2 scripts drafted</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+              <span style="display:flex;align-items:center;gap:8px;"><span class="dot" style="background:var(--indigo-400);"></span> Production Agent</span>
+              <span style="color:var(--indigo-300);">Rendering · ~3 min</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+              <span style="display:flex;align-items:center;gap:8px;"><span class="dot dot-green"></span> Publishing Agent</span>
+              <span style="color:var(--zinc-500);">Volume reduced (suppression)</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;">
+              <span style="display:flex;align-items:center;gap:8px;"><span class="dot dot-green"></span> Analytics Agent</span>
+              <span style="color:var(--zinc-500);">Monitoring suppression signal</span>
+            </div>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--zinc-800);font-size:11px;color:var(--zinc-600);">
+            Niche tournament: Home & Kitchen leading · 2 categories eliminated
+          </div>
+        </div>
+      </div>
+
+      <div class="d2-panel">
+        <div class="d2-panel-head">Top Videos <span style="color:var(--zinc-600);font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;">Last 7d</span></div>
+        <div class="d2-panel-body">
+          <table class="data-table" style="font-size:12px;">
+            <thead><tr>
+              <th>Title</th><th>3s</th><th>CTR</th><th>$</th>
+            </tr></thead>
+            <tbody>
+              <tr><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">"This $29 gadget…"</td><td class="mono" style="color:var(--emerald-400);">52%</td><td class="mono" style="color:var(--emerald-400);">3.1%</td><td class="mono" style="color:var(--emerald-400);">$18.40</td></tr>
+              <tr><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">"Everyone's buying…"</td><td class="mono" style="color:var(--emerald-400);">48%</td><td class="mono" style="color:var(--emerald-400);">2.4%</td><td class="mono" style="color:var(--emerald-400);">$11.20</td></tr>
+              <tr><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">"Watch this before…"</td><td class="mono" style="color:var(--zinc-400);">38%</td><td class="mono" style="color:var(--zinc-400);">1.8%</td><td class="mono" style="color:var(--zinc-400);">$3.20</td></tr>
+              <tr><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">"Stop buying this"</td><td class="mono" style="color:var(--amber-500);">31%</td><td class="mono" style="color:var(--amber-500);">0.9%</td><td class="mono" style="color:var(--zinc-500);">$0.80</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     DIRECTION 3: Revenue Focus
+════════════════════════════════════════════ -->
+<section id="d3" class="direction">
+  <div class="dir-label">
+    <strong>③ Revenue Focus</strong>
+    <span class="dir-tag">Hero revenue number</span>
+    <span class="dir-tag">Stripe-inspired</span>
+    <span class="dir-tag">Milestone banners</span>
+    <span style="margin-left:auto;font-size:11px;">Big $ hero · Phase strip · 3-column metrics · Pipeline secondary</span>
+  </div>
+
+  <div class="d3-topbar">
+    <div class="d3-brand">⚡ tiktok<span>-faceless</span></div>
+    <span style="color:var(--zinc-700);">|</span>
+    <span style="font-size:12px;color:var(--zinc-400);">Account #1</span>
+    <div class="d3-nav" style="margin-left:auto;">
+      <div class="d3-nav-item active">Overview</div>
+      <div class="d3-nav-item">Revenue</div>
+      <div class="d3-nav-item">Videos</div>
+      <div class="d3-nav-item">Pipeline</div>
+    </div>
+  </div>
+
+  <!-- Milestone banner -->
+  <div style="padding:16px 32px 0;">
+    <div class="d3-milestone">
+      <span class="d3-milestone-icon">🎉</span>
+      <span><strong>First affiliate commission earned</strong> — $4.20 on Day 3. The system works.</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--zinc-500);">Dismiss</span>
+    </div>
+  </div>
+
+  <!-- Hero revenue -->
+  <div class="d3-hero">
+    <div class="d3-revenue-hero">
+      <div>
+        <div style="font-size:12px;color:var(--zinc-400);margin-bottom:6px;">Affiliate Revenue · This month</div>
+        <div class="d3-revenue-big">$247.60</div>
+      </div>
+      <div class="d3-revenue-meta">
+        <div class="d3-revenue-label">vs last month</div>
+        <div class="d3-revenue-change">↑ $247.60 (month 1)</div>
+      </div>
+      <div style="margin-left:auto;padding-bottom:8px;">
+        <svg viewBox="0 0 200 60" width="200" height="60">
+          <defs>
+            <linearGradient id="rev-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#10b981" stop-opacity="0.2"/>
+              <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,55 0,45 33,38 66,30 100,20 133,12 166,6 200,3 200,55" fill="url(#rev-grad)"/>
+          <polyline points="0,45 33,38 66,30 100,20 133,12 166,6 200,3" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Phase strip -->
+    <div class="d3-phase-strip">
+      <div class="d3-phase-item"><span style="color:var(--zinc-500);">Current Phase</span><strong><span class="badge badge-tournament" style="margin-top:4px;">Tournament — Day 8/14</span></strong></div>
+      <div class="d3-phase-item"><span style="color:var(--zinc-500);">Pipeline</span><strong style="color:var(--emerald-400);">● Running</strong></div>
+      <div class="d3-phase-item"><span style="color:var(--zinc-500);">Last Post</span><strong>23 min ago</strong></div>
+      <div class="d3-phase-item"><span style="color:var(--zinc-500);">Videos Today</span><strong>4 / 5 target</strong></div>
+      <div class="d3-phase-item"><span style="color:var(--zinc-500);">Suppression</span><strong style="color:var(--emerald-400);">None</strong></div>
+      <div class="d3-phase-item" style="margin-left:auto;font-size:11px;color:var(--zinc-600);">Updated 42s ago</div>
+    </div>
+  </div>
+
+  <div class="d3-main">
+    <!-- 3 metric cards -->
+    <div class="d3-grid-3">
+      <div class="card">
+        <div class="card-label">3s Retention · Avg 7d</div>
+        <div class="card-value">43%</div>
+        <div class="card-sub card-trend-up">↑ 3pp · Above target (40%)</div>
+        <svg class="sparkline" style="margin-top:10px;" viewBox="0 0 80 28">
+          <polyline points="0,22 13,18 26,16 39,12 52,10 65,8 80,6" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="card-footer">Per-video breakdown ↓</div>
+      </div>
+      <div class="card">
+        <div class="card-label">15s Retention · Avg 7d</div>
+        <div class="card-value">28%</div>
+        <div class="card-sub" style="color:var(--zinc-400);">→ Flat · Above target (25%)</div>
+        <svg class="sparkline" style="margin-top:10px;" viewBox="0 0 80 28">
+          <polyline points="0,14 13,12 26,15 39,13 52,14 65,12 80,13" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="card-footer">Stable — no action needed</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Affiliate CTR · Avg 7d</div>
+        <div class="card-value">2.1%</div>
+        <div class="card-sub card-trend-up">↑ 0.3pp · Above target (2%)</div>
+        <svg class="sparkline" style="margin-top:10px;" viewBox="0 0 80 28">
+          <polyline points="0,24 13,22 26,18 39,14 52,12 65,10 80,8" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="card-footer">Home & Kitchen leading niche</div>
+      </div>
+    </div>
+
+    <!-- Revenue + video table -->
+    <div class="d3-row">
+      <div>
+        <div class="d1-section-title" style="margin-bottom:12px;">Revenue by Niche</div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <table class="data-table">
+            <thead><tr><th>Niche</th><th>Videos</th><th>Revenue</th><th>CTR</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr>
+                <td style="font-weight:600;">Home & Kitchen</td>
+                <td class="mono">12</td>
+                <td class="mono" style="color:var(--emerald-400);font-weight:600;">$198.40</td>
+                <td class="mono" style="color:var(--emerald-400);">2.8%</td>
+                <td><span class="badge badge-healthy">Leading</span></td>
+              </tr>
+              <tr>
+                <td>Beauty</td>
+                <td class="mono">8</td>
+                <td class="mono" style="color:var(--zinc-300);">$38.20</td>
+                <td class="mono" style="color:var(--zinc-400);">1.6%</td>
+                <td><span class="badge badge-warning">Trailing</span></td>
+              </tr>
+              <tr>
+                <td>Fitness</td>
+                <td class="mono">6</td>
+                <td class="mono" style="color:var(--zinc-500);">$11.00</td>
+                <td class="mono" style="color:var(--amber-500);">0.8%</td>
+                <td><span class="badge" style="background:rgba(244,63,94,0.08);color:var(--rose-400);border-color:rgba(244,63,94,0.2);">Eliminated</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="d1-section-title" style="margin-bottom:12px;">Agent Pipeline</div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;">
+            <span style="display:flex;align-items:center;gap:8px;"><span class="dot dot-green"></span> Research</span>
+            <span style="color:var(--zinc-500);font-size:12px;">Done</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;">
+            <span style="display:flex;align-items:center;gap:8px;"><span class="dot dot-green"></span> Script</span>
+            <span style="color:var(--zinc-500);font-size:12px;">Done</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;">
+            <span style="display:flex;align-items:center;gap:8px;"><span class="dot" style="background:var(--indigo-400);"></span> Production</span>
+            <span style="color:var(--indigo-300);font-size:12px;">Running</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;opacity:0.4;">
+            <span style="display:flex;align-items:center;gap:8px;"><span class="dot" style="background:var(--zinc-600);"></span> Publishing</span>
+            <span style="color:var(--zinc-600);font-size:12px;">Waiting</span>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;opacity:0.4;">
+            <span style="display:flex;align-items:center;gap:8px;"><span class="dot" style="background:var(--zinc-600);"></span> Analytics</span>
+            <span style="color:var(--zinc-600);font-size:12px;">Waiting</span>
+          </div>
+          <div style="margin-top:4px;padding-top:10px;border-top:1px solid var(--zinc-800);font-size:11px;color:var(--zinc-600);">Next publish in ~6 min</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     DIRECTION 4: Pipeline View
+════════════════════════════════════════════ -->
+<section id="d4" class="direction">
+  <div class="dir-label">
+    <strong>④ Pipeline View</strong>
+    <span class="dir-tag">Ops-first</span>
+    <span class="dir-tag">Agent-centric</span>
+    <span class="dir-tag">Railway/Vercel-inspired</span>
+    <span style="margin-left:auto;font-size:11px;">Pipeline hero · Animated agent states · KPI row below · Suppression section</span>
+  </div>
+
+  <div class="d4-topbar">
+    <div class="d4-brand">⚡ tiktok-faceless</div>
+    <div class="d4-status-dot-group">
+      <span class="dot dot-green"></span>
+      <span style="color:var(--zinc-300);font-size:12px;">All agents running</span>
+    </div>
+    <span style="color:var(--zinc-700)">·</span>
+    <span class="badge badge-tournament" style="font-size:10px;">Tournament · Day 8</span>
+    <span style="color:var(--zinc-700)">·</span>
+    <span style="font-size:12px;color:var(--zinc-400);">Last post <strong style="color:var(--zinc-200);">23 min ago</strong></span>
+    <div class="d4-ts">⟳ 38s ago</div>
+  </div>
+
+  <div class="d4-main">
+    <!-- Pipeline hero -->
+    <div class="d4-pipeline-section">
+      <div class="d4-pipeline-title">Agent Pipeline — Current Run</div>
+      <div class="d4-pipeline-visual">
+        <div class="d4-agent">
+          <div class="d4-agent-icon done">🔍</div>
+          <div class="d4-agent-name">Research</div>
+          <div class="d4-agent-status"><span class="badge badge-healthy" style="font-size:10px;padding:2px 8px;">Done</span></div>
+        </div>
+        <div class="d4-agent">
+          <div class="d4-agent-icon done">✍️</div>
+          <div class="d4-agent-name">Script</div>
+          <div class="d4-agent-status"><span class="badge badge-healthy" style="font-size:10px;padding:2px 8px;">Done</span></div>
+        </div>
+        <div class="d4-agent">
+          <div class="d4-agent-icon running">🎬</div>
+          <div class="d4-agent-name">Production</div>
+          <div class="d4-agent-status"><span class="badge badge-tournament" style="font-size:10px;padding:2px 8px;">Running</span></div>
+        </div>
+        <div class="d4-agent">
+          <div class="d4-agent-icon waiting">📤</div>
+          <div class="d4-agent-name">Publishing</div>
+          <div class="d4-agent-status" style="color:var(--zinc-600);font-size:11px;">Waiting</div>
+        </div>
+        <div class="d4-agent">
+          <div class="d4-agent-icon waiting">📈</div>
+          <div class="d4-agent-name">Analytics</div>
+          <div class="d4-agent-status" style="color:var(--zinc-600);font-size:11px;">Waiting</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;font-size:12px;color:var(--zinc-500);">
+        Production: rendering "This $29 gadget actually works" · Hook: Curiosity gap · Niche: Home & Kitchen · ETA ~3 min
+      </div>
+    </div>
+
+    <!-- Suppression alert (showing the bad state) -->
+    <div class="d4-suppression">
+      <div class="d4-supp-header"><span>🚨</span> Suppression signal — monitoring</div>
+      <div class="d4-supp-detail">
+        <div class="d4-supp-metric"><span>FYP Reach Rate</span><span style="color:var(--rose-400);">41% <span style="font-size:10px;color:var(--zinc-500);">(was 68%, −27pp)</span></span></div>
+        <div class="d4-supp-metric"><span>View velocity</span><span style="color:var(--rose-400);">2,400/hr <span style="font-size:10px;color:var(--zinc-500);">(was 8,400/hr)</span></span></div>
+        <div class="d4-supp-metric"><span>Publishing volume</span><span style="color:var(--amber-500);">Reduced automatically</span></div>
+        <div class="d4-supp-metric"><span>Last content change</span><span style="color:var(--zinc-400);">None in 6h</span></div>
+      </div>
+    </div>
+
+    <!-- KPI row -->
+    <div class="d4-kpi-row">
+      <div class="card">
+        <div class="card-label">Revenue · 7d</div>
+        <div class="card-value" style="font-size:20px;">$247</div>
+        <div class="card-sub card-trend-up">↑ $62 week-over-week</div>
+        <svg class="sparkline" style="margin-top:8px;" viewBox="0 0 80 24">
+          <polyline points="0,20 13,16 26,18 39,12 52,8 65,5 80,3" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="card">
+        <div class="card-label">3s Retention</div>
+        <div class="card-value" style="font-size:20px;">43%</div>
+        <div class="card-sub card-trend-up">↑ 3pp · Target: 40%</div>
+        <svg class="sparkline" style="margin-top:8px;" viewBox="0 0 80 24">
+          <polyline points="0,18 13,16 26,14 39,12 52,10 65,8 80,6" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="card">
+        <div class="card-label">Affiliate CTR</div>
+        <div class="card-value" style="font-size:20px;">2.1%</div>
+        <div class="card-sub card-trend-up">↑ 0.3pp · Target: 2%</div>
+        <svg class="sparkline" style="margin-top:8px;" viewBox="0 0 80 24">
+          <polyline points="0,22 13,20 26,18 39,16 52,14 65,12 80,10" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="card">
+        <div class="card-label">48h Kill Rate</div>
+        <div class="card-value" style="font-size:20px;">75%</div>
+        <div class="card-sub" style="color:var(--zinc-400);">3 of 4 kills correct</div>
+        <svg class="sparkline" style="margin-top:8px;" viewBox="0 0 80 24">
+          <polyline points="0,12 13,10 26,14 39,11 52,12 65,10 80,11" fill="none" stroke="#a1a1aa" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Niche tournament -->
+    <div class="d1-table-card" style="background:var(--zinc-900);border:1px solid var(--zinc-800);border-radius:10px;overflow:hidden;">
+      <div class="d1-table-header" style="padding:14px 16px;border-bottom:1px solid var(--zinc-800);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:space-between;">
+        Niche Tournament Results <span style="color:var(--zinc-400);font-size:12px;font-weight:400;">Day 8 — 6 days remaining</span>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Niche</th><th>Videos</th><th>Avg 3s Ret</th><th>Avg CTR</th><th>Revenue</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="font-weight:600;color:var(--emerald-400);">🏆 Home & Kitchen</td>
+            <td class="mono">12</td>
+            <td class="mono" style="color:var(--emerald-400);">48%</td>
+            <td class="mono" style="color:var(--emerald-400);">2.8%</td>
+            <td class="mono" style="color:var(--emerald-400);font-weight:600;">$198</td>
+            <td><span class="badge badge-healthy">Leading</span></td>
+          </tr>
+          <tr>
+            <td>Beauty</td>
+            <td class="mono">8</td>
+            <td class="mono" style="color:var(--zinc-300);">36%</td>
+            <td class="mono" style="color:var(--zinc-400);">1.6%</td>
+            <td class="mono" style="color:var(--zinc-400);">$38</td>
+            <td><span class="badge badge-warning">Trailing</span></td>
+          </tr>
+          <tr>
+            <td style="color:var(--zinc-600);">Fitness</td>
+            <td class="mono" style="color:var(--zinc-600);">6</td>
+            <td class="mono" style="color:var(--zinc-600);">29%</td>
+            <td class="mono" style="color:var(--zinc-600);">0.8%</td>
+            <td class="mono" style="color:var(--zinc-600);">$11</td>
+            <td><span class="badge" style="background:rgba(244,63,94,0.08);color:var(--rose-400);border-color:rgba(244,63,94,0.2);font-size:10px;padding:2px 8px;">Eliminated</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+function showDir(n) {
+  document.querySelectorAll('.direction').forEach(d => d.classList.remove('active'));
+  document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('d' + n).classList.add('active');
+  document.querySelectorAll('.dir-btn')[n-1].classList.add('active');
+}
+</script>
+</body>
+</html>

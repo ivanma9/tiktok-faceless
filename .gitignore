@@ -1,6 +1,54 @@
-.env
+# Python
 __pycache__/
-*.pyc
-venv/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
 .venv/
-tokens.json
+venv/
+env/
+
+# uv
+.uv/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic
+tiktok_faceless/db/migrations/versions/*.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
+logs/
+
+# Media / output
+output/
+tmp/

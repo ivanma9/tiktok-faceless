@@ -90,6 +90,10 @@ class TestBuildGraph:
                                                         tiktok_open_id="oid",
                                                         posting_window_start=0,
                                                         posting_window_end=23,
+                                                        max_posts_per_day=3,
+                                                        tournament_posts_per_day=3,
+                                                        commit_posts_per_day=3,
+                                                        scale_posts_per_day=3,
                                                     )
                                                     with patch(
                                                         "tiktok_faceless.agents.publishing"

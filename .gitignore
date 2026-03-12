@@ -52,3 +52,7 @@ logs/
 # Media / output
 output/
 tmp/
+
+# Claude / BMAD tooling
+.claude/
+.certs/

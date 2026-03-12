@@ -32,6 +32,8 @@ class AccountConfig(BaseModel):
     retention_kill_threshold: float = Field(default=0.25, ge=0.0, le=1.0)
     fyp_suppression_threshold: float = Field(default=0.40, ge=0.0, le=1.0)
     commit_phase_min_videos: int = Field(default=5, ge=1)
+    tournament_min_video_count: int = Field(default=3, ge=1)
+    tournament_elimination_threshold_score: float = Field(default=0.0, ge=0.0, le=1.0)
     min_commission_rate: float = Field(default=0.05, ge=0.0, le=1.0)
     min_sales_velocity: float = Field(default=0.3, ge=0.0, le=1.0)
     decay_threshold: float = Field(default=0.001, ge=0.0)

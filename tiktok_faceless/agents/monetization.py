@@ -80,6 +80,7 @@ def monetization_node(state: PipelineState) -> dict[str, Any]:
         video = (
             session.query(Video)
             .filter_by(account_id=state.account_id, lifecycle_state="queued")
+            .filter(Video.product_id.is_(None))     # only unassigned videos
             .order_by(Video.created_at.desc())
             .first()
         )

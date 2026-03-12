@@ -212,6 +212,38 @@ class TestCommissionPolling:
         assert result["product_validated"] is True
         assert result["affiliate_commission_week"] == pytest.approx(1.00)
 
+    def test_video_query_filters_unassigned_product_id(self) -> None:
+        """monetization_node must filter Video query to product_id IS NULL (orphan safety)."""
+        state = PipelineState(account_id="acc1", selected_product=_PRODUCT)
+
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session") as mock_get_session,
+        ):
+            mock_client = MagicMock()
+            mock_client.generate_affiliate_link.return_value = "https://affiliate.link/x"
+            mock_client.get_affiliate_orders.return_value = []
+            mock_client_cls.return_value = mock_client
+
+            # Build a mock session that records filter calls
+            mock_session_obj = MagicMock()
+            mock_ctx = MagicMock()
+            mock_ctx.__enter__ = MagicMock(return_value=mock_session_obj)
+            mock_ctx.__exit__ = MagicMock(return_value=False)
+            mock_get_session.return_value = mock_ctx
+
+            # Chain: query -> filter_by -> filter -> order_by -> first -> None
+            query_chain = mock_session_obj.query.return_value
+            filter_by_chain = query_chain.filter_by.return_value
+            filter_chain = filter_by_chain.filter.return_value
+            filter_chain.order_by.return_value.first.return_value = None
+
+            monetization_node(state)
+
+        # Verify .filter() was called (for product_id IS NULL)
+        filter_by_chain.filter.assert_called_once()
+
     def test_missing_product_returns_error_without_polling(self) -> None:
         """MissingProduct error is returned immediately — commission polling never runs."""
         state = PipelineState(account_id="acc1", selected_product=None)

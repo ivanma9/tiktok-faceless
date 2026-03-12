@@ -107,20 +107,45 @@ class TikTokAPIClient:
     def post_video(
         self, account_id: str, video_path: str, caption: str
     ) -> TikTokPostResponse:
-        """Upload and publish a video. Returns TikTokPostResponse with video_id."""
+        """Upload and publish a video using TikTok's two-step init+upload flow."""
+        import os
         self._bucket.consume()
-        with open(video_path, "rb"):
-            response = self._http.post(
-                "/v2/post/publish/video/init/",
-                json={
-                    "post_info": {"title": caption, "privacy_level": "SELF_ONLY"},
-                    "source_info": {"source": "FILE_UPLOAD"},
+        file_size = os.path.getsize(video_path)
+
+        # Step 1: Initialize the upload
+        init_response = self._http.post(
+            "/v2/post/publish/video/init/",
+            json={
+                "post_info": {"title": caption, "privacy_level": "SELF_ONLY"},
+                "source_info": {
+                    "source": "FILE_UPLOAD",
+                    "video_size": file_size,
+                    "chunk_size": file_size,
+                    "total_chunk_count": 1,
                 },
-            )
-        self._handle_response(response)
-        data = response.json()["data"]
+            },
+        )
+        self._handle_response(init_response)
+        data = init_response.json()["data"]
+        upload_url = data.get("upload_url", "")
+        publish_id = data.get("publish_id", "")
+
+        # Step 2: Upload the video bytes
+        with open(video_path, "rb") as f:
+            video_bytes = f.read()
+
+        upload_response = self._http.put(
+            upload_url,
+            content=video_bytes,
+            headers={
+                "Content-Type": "video/mp4",
+                "Content-Range": f"bytes 0-{file_size - 1}/{file_size}",
+            },
+        )
+        self._handle_response(upload_response)
+
         return TikTokPostResponse(
-            video_id=data.get("video_id", ""),
+            video_id=publish_id,
             share_url=data.get("share_url"),
         )
 
@@ -187,22 +212,30 @@ class TikTokAPIClient:
 
     @api_retry
     def get_affiliate_orders(self, account_id: str) -> list[CommissionRecord]:
-        """Fetch affiliate commission orders for the account."""
+        """Fetch affiliate commission orders for the last 7 days."""
+        from datetime import datetime, timedelta, timezone
         self._bucket.consume()
+        start_date = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
         response = self._http.post(
             "/v2/tiktok_shop/affiliate/orders/",
-            json={"open_id": self._open_id},
+            json={"open_id": self._open_id, "start_date": start_date},
         )
         self._handle_response(response)
         orders = response.json().get("data", {}).get("orders", [])
-        return [
-            CommissionRecord(
-                order_id=str(o["order_id"]),
-                product_id=str(o["product_id"]),
-                commission_amount=float(o.get("commission_amount", 0.0)),
+        records = []
+        for o in orders:
+            order_id = o.get("order_id")
+            product_id = o.get("product_id")
+            if not order_id or not product_id:
+                continue
+            records.append(
+                CommissionRecord(
+                    order_id=str(order_id),
+                    product_id=str(product_id),
+                    commission_amount=float(o.get("commission_amount", 0.0)),
+                )
             )
-            for o in orders
-        ]
+        return records
 
     def close(self) -> None:
         """Release the underlying HTTP connection pool."""

@@ -100,24 +100,67 @@ class TestTikTokAPIClient:
                 client.get_metrics(account_id="acc1", video_id="vid_123")
 
     def test_post_video_returns_response(self) -> None:
+        from unittest.mock import mock_open
         client = self._make_client()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "data": {"video_id": "new_vid_456", "share_url": None}
+        mock_init_response = MagicMock()
+        mock_init_response.status_code = 200
+        mock_init_response.json.return_value = {
+            "data": {"publish_id": "new_vid_456", "upload_url": "https://upload.example.com/v", "share_url": None}
         }
-        mock_response.raise_for_status = MagicMock()
+        mock_upload_response = MagicMock()
+        mock_upload_response.status_code = 200
 
-        with patch.object(client._http, "post", return_value=mock_response):
-            with patch("builtins.open", MagicMock()):
-                result = client.post_video(
-                    account_id="acc1",
-                    video_path="/tmp/test.mp4",
-                    caption="Test video #affiliate",
-                )
+        with (
+            patch("os.path.getsize", return_value=5),
+            patch("builtins.open", mock_open(read_data=b"video")),
+            patch.object(client._http, "post", return_value=mock_init_response),
+            patch.object(client._http, "put", return_value=mock_upload_response),
+        ):
+            result = client.post_video(
+                account_id="acc1",
+                video_path="/tmp/test.mp4",
+                caption="Test video #affiliate",
+            )
 
         assert isinstance(result, TikTokPostResponse)
         assert result.video_id == "new_vid_456"
+
+    def test_post_video_reads_and_sends_file_bytes(self) -> None:
+        """post_video must read the file and include bytes in the upload call."""
+        from unittest.mock import mock_open
+        client = self._make_client()
+
+        fake_bytes = b"fake video content"
+
+        # Mock the init response
+        init_response = MagicMock()
+        init_response.status_code = 200
+        init_response.json.return_value = {
+            "data": {"publish_id": "pub_123", "upload_url": "https://upload.example.com/video", "share_url": None}
+        }
+
+        # Mock the upload response
+        upload_response = MagicMock()
+        upload_response.status_code = 200
+
+        with (
+            patch("os.path.getsize", return_value=len(fake_bytes)),
+            patch("builtins.open", mock_open(read_data=fake_bytes)),
+            patch.object(client._http, "post", return_value=init_response) as mock_post,
+            patch.object(client._http, "put", return_value=upload_response) as mock_put,
+        ):
+            result = client.post_video(
+                account_id="acc1",
+                video_path="/tmp/test.mp4",
+                caption="Test caption",
+            )
+
+        # Verify file bytes were sent in the PUT
+        mock_put.assert_called_once()
+        call_kwargs = mock_put.call_args
+        assert call_kwargs.kwargs.get("content") == fake_bytes or \
+               (call_kwargs.args and fake_bytes in call_kwargs.args)
+        assert result.video_id == "pub_123"
 
 
 class TestGetValidatedProducts:
@@ -226,6 +269,46 @@ class TestGetAffiliateOrders:
         with patch.object(client._http, "post", return_value=mock_response):
             orders = client.get_affiliate_orders(account_id="acc1")
         assert orders == []
+
+    def test_skips_malformed_orders_missing_fields(self) -> None:
+        """Orders missing order_id or product_id must be skipped, not raise KeyError."""
+        client = TikTokAPIClient(access_token="tok", open_id="oid")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {
+                "orders": [
+                    {"order_id": "ord1", "product_id": "prod1", "commission_amount": 4.50},
+                    {"product_id": "prod2", "commission_amount": 2.00},   # missing order_id
+                    {"order_id": "ord3", "commission_amount": 1.00},       # missing product_id
+                ]
+            }
+        }
+        with patch.object(client._http, "post", return_value=mock_response):
+            orders = client.get_affiliate_orders(account_id="acc1")
+
+        assert len(orders) == 1
+        assert orders[0].order_id == "ord1"
+
+    def test_sends_start_date_in_request(self) -> None:
+        """get_affiliate_orders must include a start_date ~7 days ago in the request body."""
+        from datetime import datetime, timedelta, timezone
+        client = TikTokAPIClient(access_token="tok", open_id="oid")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": {"orders": []}}
+
+        with patch.object(client._http, "post", return_value=mock_response) as mock_post:
+            client.get_affiliate_orders(account_id="acc1")
+
+        call_json = mock_post.call_args.kwargs.get("json") or {}
+        assert "start_date" in call_json, "start_date must be included in the request body"
+        start = datetime.fromisoformat(call_json["start_date"])
+        # Make timezone-aware for comparison
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        expected = datetime.now(timezone.utc) - timedelta(days=7)
+        assert abs((start - expected).total_seconds()) < 120, "start_date must be ~7 days ago"
 
 
 class TestGetVideoComments:

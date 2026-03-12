@@ -143,3 +143,125 @@ class TestCommentMining:
         assert result["product_validated"] is True
         assert result["selected_product"]["buyer_language"] == []
         assert "errors" not in result
+
+
+class TestTournamentMode:
+    def test_scans_all_candidate_niches(self) -> None:
+        state = PipelineState(
+            account_id="acc1",
+            phase="tournament",
+            candidate_niches=["health", "fitness"],
+        )
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session", return_value=_mock_session_ctx()),
+            patch(f"{_MOD}.get_cached_products", return_value=[]),
+            patch(f"{_MOD}.cache_product"),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_validated_products.return_value = [_PRODUCT]
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            result = research_node(state)
+
+        assert mock_client.get_validated_products.call_count == 2
+        assert result["product_validated"] is True
+
+    def test_picks_highest_score_across_niches(self) -> None:
+        low = AffiliateProduct(
+            product_id="p_low", product_name="Low", product_url="u",
+            commission_rate=0.1, sales_velocity_score=0.4, niche="fitness"
+        )
+        high = AffiliateProduct(
+            product_id="p_high", product_name="High", product_url="u",
+            commission_rate=0.2, sales_velocity_score=0.9, niche="health"
+        )
+        state = PipelineState(
+            account_id="acc1", phase="tournament", candidate_niches=["health", "fitness"]
+        )
+        call_count = 0
+        def side_effect(**kwargs: object) -> list[AffiliateProduct]:
+            nonlocal call_count
+            call_count += 1
+            return [high] if call_count == 1 else [low]
+
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session", return_value=_mock_session_ctx()),
+            patch(f"{_MOD}.get_cached_products", return_value=[]),
+            patch(f"{_MOD}.cache_product"),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_validated_products.side_effect = side_effect
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            result = research_node(state)
+
+        assert result["selected_product"]["product_id"] == "p_high"
+
+    def test_commit_mode_ignores_candidate_niches(self) -> None:
+        state = PipelineState(
+            account_id="acc1",
+            phase="commit",
+            candidate_niches=["fitness"],  # should be ignored
+            committed_niche="health",
+        )
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session", return_value=_mock_session_ctx()),
+            patch(f"{_MOD}.get_cached_products", return_value=[]),
+            patch(f"{_MOD}.cache_product"),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_validated_products.return_value = [_PRODUCT]
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            research_node(state)
+
+        call_niches = [
+            call.kwargs.get("niche") or call.args[1]
+            for call in mock_client.get_validated_products.call_args_list
+        ]
+        assert "fitness" not in call_niches
+        assert "health" in call_niches
+
+    def test_empty_candidate_niches_returns_error(self) -> None:
+        state = PipelineState(
+            account_id="acc1", phase="tournament", candidate_niches=[]
+        )
+        with patch(f"{_MOD}.load_account_config", return_value=_mock_config()):
+            result = research_node(state)
+        assert "errors" in result
+        assert result["errors"][0].error_type == "MissingNiche"
+
+    def test_one_niche_failure_does_not_block_others(self) -> None:
+        from tiktok_faceless.clients import TikTokAPIError
+        state = PipelineState(
+            account_id="acc1", phase="tournament", candidate_niches=["health", "fitness"]
+        )
+        call_count = 0
+        def side_effect(**kwargs: object) -> list[AffiliateProduct]:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise TikTokAPIError("niche 1 failed")
+            return [_PRODUCT]
+
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session", return_value=_mock_session_ctx()),
+            patch(f"{_MOD}.get_cached_products", return_value=[]),
+            patch(f"{_MOD}.cache_product"),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_validated_products.side_effect = side_effect
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            result = research_node(state)
+
+        assert result["product_validated"] is True
+        assert "errors" not in result

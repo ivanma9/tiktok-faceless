@@ -11,31 +11,41 @@ from tiktok_faceless.clients.tiktok import TikTokAPIClient
 from tiktok_faceless.config import load_account_config
 from tiktok_faceless.db.queries import cache_product, get_cached_products
 from tiktok_faceless.db.session import get_session
+from tiktok_faceless.models.shop import AffiliateProduct
 from tiktok_faceless.state import AgentError, PipelineState
 
 
 def research_node(state: PipelineState) -> dict[str, Any]:
     """
-    Validate products for the committed niche via TikTok Shop buyer intent signals.
+    Validate products for the configured niche(s) via TikTok Shop buyer intent signals.
+
+    In tournament phase: scans all candidate_niches and picks the best product overall.
+    In other phases: scans only committed_niche.
 
     Returns state delta dict with selected_product + product_validated=True on success,
     or errors list on failure. Never returns full PipelineState.
 
     Cache logic: products fetched within 24h are reused — no redundant API calls.
     """
-    niche = state.committed_niche
-    if not niche:
+    # Determine niches to scan based on phase
+    if state.phase == "tournament":
+        niches = state.candidate_niches
+    else:
+        niches = [state.committed_niche] if state.committed_niche else []
+
+    if not niches:
         return {
             "errors": [
                 AgentError(
                     agent="research",
                     error_type="MissingNiche",
                     message=(
-                        "committed_niche is not set — cannot validate products "
-                        "without a target niche"
+                        "No niches to scan. Set committed_niche (commit/other phases) "
+                        "or candidate_niches (tournament phase)."
                     ),
                     recovery_suggestion=(
-                        "Set committed_niche in state before calling research_node."
+                        "Populate committed_niche or candidate_niches in state before "
+                        "calling research_node."
                     ),
                 )
             ]
@@ -47,14 +57,19 @@ def research_node(state: PipelineState) -> dict[str, Any]:
         open_id=config.tiktok_open_id,
     )
 
-    # Cache check: skip API if fresh products exist
-    with get_session() as session:
-        cached = get_cached_products(session, account_id=state.account_id, niche=niche)
+    # Collect best product per niche
+    all_best: list[AffiliateProduct] = []
 
-    if cached:
-        best = max(cached, key=lambda p: p.sales_velocity_score)
-    else:
-        # Live API fetch
+    for niche in niches:
+        # Cache check per niche
+        with get_session() as session:
+            cached = get_cached_products(session, account_id=state.account_id, niche=niche)
+
+        if cached:
+            all_best.append(max(cached, key=lambda p: p.sales_velocity_score))
+            continue
+
+        # Live API fetch for this niche
         try:
             products = client.get_validated_products(
                 account_id=state.account_id,
@@ -62,47 +77,31 @@ def research_node(state: PipelineState) -> dict[str, Any]:
                 min_commission_rate=config.min_commission_rate,
                 min_sales_velocity=config.min_sales_velocity,
             )
-        except (TikTokRateLimitError, TikTokAPIError) as e:
-            return {
-                "errors": [
-                    AgentError(
-                        agent="research",
-                        error_type=type(e).__name__,
-                        message=str(e),
-                        recovery_suggestion=(
-                            "TikTok API error during product search. "
-                            "Check rate limits and credentials."
-                        ),
-                    )
-                ]
-            }
+        except (TikTokRateLimitError, TikTokAPIError):
+            # Non-fatal per niche — continue to next niche
+            continue
 
-        if not products:
-            return {
-                "product_validated": False,
-                "errors": [
-                    AgentError(
-                        agent="research",
-                        error_type="NoValidatedProducts",
-                        message=(
-                            f"No products in niche '{niche}' met the validation thresholds "
-                            f"(min_commission={config.min_commission_rate}, "
-                            f"min_velocity={config.min_sales_velocity})"
-                        ),
-                        recovery_suggestion=(
-                            f"Try a different niche or lower the thresholds. "
-                            f"Current niche: {niche}."
-                        ),
-                    )
-                ],
-            }
+        if products:
+            with get_session() as session:
+                for product in products:
+                    cache_product(session, account_id=state.account_id, product=product)
+            all_best.append(products[0])
 
-        # Cache results
-        with get_session() as session:
-            for product in products:
-                cache_product(session, account_id=state.account_id, product=product)
+    if not all_best:
+        return {
+            "product_validated": False,
+            "errors": [
+                AgentError(
+                    agent="research",
+                    error_type="NoValidatedProducts",
+                    message=f"No products in niches {niches} met the validation thresholds.",
+                    recovery_suggestion="Try different niches or lower thresholds.",
+                )
+            ],
+        }
 
-        best = products[0]  # already sorted by sales_velocity_score descending
+    # Pick winner across all niches
+    best = max(all_best, key=lambda p: p.sales_velocity_score)
 
     # Mine buyer-language comments (non-fatal — never blocks pipeline)
     try:

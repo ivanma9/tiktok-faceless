@@ -1,5 +1,6 @@
 """Tests for TikTokAPIClient."""
 
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,6 +26,29 @@ class TestTokenBucket:
         with patch("time.sleep") as mock_sleep:
             bucket.consume()
             mock_sleep.assert_called_once()
+
+    def test_lock_not_held_during_sleep(self) -> None:
+        """A second thread must be able to acquire the lock while the first is sleeping."""
+        import threading
+
+        bucket = TokenBucket(max_tokens=1, refill_period=60.0)
+        bucket.consume()  # exhaust the bucket
+
+        acquired_during_sleep = threading.Event()
+        original_sleep = time.sleep
+
+        def patched_sleep(duration: float) -> None:
+            # Try to acquire the lock while sleeping
+            got_it = bucket._lock.acquire(blocking=False)
+            if got_it:
+                acquired_during_sleep.set()
+                bucket._lock.release()
+            original_sleep(0)  # Don't actually sleep in tests
+
+        with patch("tiktok_faceless.clients.tiktok.time.sleep", side_effect=patched_sleep):
+            bucket.consume()
+
+        assert acquired_during_sleep.is_set(), "Lock was held during sleep — deadlock risk"
 
 
 class TestTikTokAPIClient:

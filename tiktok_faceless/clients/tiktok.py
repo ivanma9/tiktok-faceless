@@ -34,6 +34,7 @@ class TokenBucket:
 
     def consume(self) -> None:
         """Block until a token is available, then consume one."""
+        wait = 0.0
         with self._lock:
             now = time.monotonic()
             elapsed = now - self._last_refill
@@ -44,10 +45,12 @@ class TokenBucket:
             self._last_refill = now
             if self._tokens < 1:
                 wait = (1 - self._tokens) * (self._refill_period / self._max_tokens)
-                time.sleep(wait)
                 self._tokens = 0.0
             else:
                 self._tokens -= 1.0
+        # Sleep OUTSIDE the lock so other threads can proceed
+        if wait > 0:
+            time.sleep(wait)
 
 
 class TikTokAPIClient:

@@ -8,7 +8,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from tiktok_faceless.db.models import Base, Product, Video, VideoMetric
-from tiktok_faceless.db.queries import cache_product, get_cached_products, get_commission_per_view
+from tiktok_faceless.db.queries import (
+    cache_product,
+    get_cached_products,
+    get_commission_per_view,
+    get_commission_totals,
+)
 from tiktok_faceless.models.shop import AffiliateProduct
 
 
@@ -103,3 +108,63 @@ class TestGetCommissionPerView:
     def test_returns_zero_when_no_data(self, session) -> None:
         cpv = get_commission_per_view(session, account_id="acc1", niche="health")
         assert cpv == 0.0
+
+
+class TestGetCommissionTotals:
+    def test_aggregates_by_niche_correctly(self, session) -> None:
+        now = datetime.utcnow()
+        session.add(Video(
+            id="v1", account_id="acc1", niche="fitness",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v1",
+            created_at=now,
+        ))
+        session.add(Video(
+            id="v2", account_id="acc1", niche="beauty",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v2",
+            created_at=now,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v1", account_id="acc1",
+            recorded_at=now - timedelta(days=1),
+            view_count=1000, like_count=0, comment_count=0,
+            share_count=0, average_time_watched=0.0,
+            retention_3s=0.0, retention_15s=0.0, fyp_reach_pct=0.0,
+            affiliate_clicks=10, affiliate_orders=3,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v2", account_id="acc1",
+            recorded_at=now - timedelta(days=2),
+            view_count=500, like_count=0, comment_count=0,
+            share_count=0, average_time_watched=0.0,
+            retention_3s=0.0, retention_15s=0.0, fyp_reach_pct=0.0,
+            affiliate_clicks=5, affiliate_orders=1,
+        ))
+        session.commit()
+        result = get_commission_totals(session, account_id="acc1")
+        assert result["fitness"]["total_orders"] == 3
+        assert result["fitness"]["total_views"] == 1000
+        assert result["beauty"]["total_orders"] == 1
+        assert result["beauty"]["total_views"] == 500
+
+    def test_returns_empty_dict_when_no_data(self, session) -> None:
+        result = get_commission_totals(session, account_id="acc1")
+        assert result == {}
+
+    def test_excludes_metrics_outside_window(self, session) -> None:
+        now = datetime.utcnow()
+        session.add(Video(
+            id="v1", account_id="acc1", niche="fitness",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v1",
+            created_at=now,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v1", account_id="acc1",
+            recorded_at=now - timedelta(days=10),
+            view_count=9999, like_count=0, comment_count=0,
+            share_count=0, average_time_watched=0.0,
+            retention_3s=0.0, retention_15s=0.0, fyp_reach_pct=0.0,
+            affiliate_clicks=0, affiliate_orders=99,
+        ))
+        session.commit()
+        result = get_commission_totals(session, account_id="acc1")
+        assert result == {}

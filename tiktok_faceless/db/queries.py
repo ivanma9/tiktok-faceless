@@ -83,6 +83,45 @@ def get_commission_per_view(
     return float(result.total_orders or 0) / float(result.total_views)
 
 
+def get_commission_totals(
+    session: Session,
+    account_id: str,
+    days: int = 7,
+) -> dict[str, dict[str, int]]:
+    """
+    Aggregate affiliate orders and views by niche over the last N days.
+    Returns: {niche: {"total_orders": int, "total_views": int}}
+    """
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import func
+
+    from tiktok_faceless.db.models import Video, VideoMetric
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    rows = (
+        session.query(
+            Video.niche,
+            func.sum(VideoMetric.affiliate_orders).label("total_orders"),
+            func.sum(VideoMetric.view_count).label("total_views"),
+        )
+        .join(Video, VideoMetric.video_id == Video.tiktok_video_id)
+        .filter(
+            Video.account_id == account_id,
+            VideoMetric.recorded_at >= cutoff,
+        )
+        .group_by(Video.niche)
+        .all()
+    )
+    return {
+        row.niche: {
+            "total_orders": int(row.total_orders or 0),
+            "total_views": int(row.total_views or 0),
+        }
+        for row in rows
+    }
+
+
 def get_cached_products(
     session: Session,
     account_id: str,

@@ -160,3 +160,40 @@ class TestGetValidatedProducts:
                     min_commission_rate=0.05,
                     min_sales_velocity=0.3,
                 )
+
+
+class TestGetVideoComments:
+    def test_returns_list_of_comment_texts(self) -> None:
+        client = TikTokAPIClient(access_token="tok", open_id="oid")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {
+                "comments": [
+                    {"text": "Where can I get this?"},
+                    {"text": "Does it really work?"},
+                ]
+            }
+        }
+        with patch.object(client._http, "post", return_value=mock_response):
+            comments = client.get_video_comments(video_id="vid123", max_count=20)
+        assert "Where can I get this?" in comments
+        assert len(comments) == 2
+
+    def test_returns_empty_list_when_no_comments(self) -> None:
+        client = TikTokAPIClient(access_token="tok", open_id="oid")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": {"comments": []}}
+        with patch.object(client._http, "post", return_value=mock_response):
+            comments = client.get_video_comments(video_id="vid123", max_count=20)
+        assert comments == []
+
+    def test_returns_empty_list_when_data_key_missing(self) -> None:
+        client = TikTokAPIClient(access_token="tok", open_id="oid")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {}
+        with patch.object(client._http, "post", return_value=mock_response):
+            comments = client.get_video_comments(video_id="vid123", max_count=20)
+        assert comments == []

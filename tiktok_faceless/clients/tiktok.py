@@ -170,6 +170,18 @@ class TikTokAPIClient:
         results.sort(key=lambda x: x.sales_velocity_score, reverse=True)
         return results
 
+    @api_retry
+    def get_video_comments(self, video_id: str, max_count: int = 20) -> list[str]:
+        """Fetch comment text strings from a TikTok video. Returns empty list if none."""
+        self._bucket.consume()
+        response = self._http.post(
+            "/v2/video/comment/list/",
+            json={"video_id": video_id, "max_count": max_count, "open_id": self._open_id},
+        )
+        self._handle_response(response)
+        comments = response.json().get("data", {}).get("comments", [])
+        return [str(c.get("text", "")) for c in comments if c.get("text")]
+
     def close(self) -> None:
         """Release the underlying HTTP connection pool."""
         self._http.close()

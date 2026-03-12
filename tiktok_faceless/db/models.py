@@ -8,7 +8,7 @@ Implementation: Story 1.2 — Core State & Database Models
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -98,6 +98,10 @@ class Product(Base):
     sales_velocity_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     cached_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     eliminated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        UniqueConstraint("account_id", "product_id", name="uq_product_account_product"),
+    )
 
 
 class AgentDecision(Base):

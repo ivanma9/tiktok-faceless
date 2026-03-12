@@ -402,3 +402,26 @@ class TestGetCachedProductsExcludesEliminated:
 
         result = get_cached_products(session, account_id="acc1", niche="fitness")
         assert len(result) == 1
+
+
+def test_cache_product_upsert_updates_niche(session: Session) -> None:
+    """Upserting a product with a changed niche must update the niche field, not create a duplicate."""
+    from tiktok_faceless.db.queries import cache_product
+    from tiktok_faceless.models.shop import AffiliateProduct
+    from tiktok_faceless.db.models import Product
+
+    product_v1 = AffiliateProduct(
+        product_id="p1", product_name="Widget", product_url="https://u.com",
+        commission_rate=0.1, sales_velocity_score=0.5, niche="health"
+    )
+    product_v2 = AffiliateProduct(
+        product_id="p1", product_name="Widget Updated", product_url="https://u.com",
+        commission_rate=0.15, sales_velocity_score=0.7, niche="fitness"
+    )
+    cache_product(session, account_id="acc1", product=product_v1)
+    cache_product(session, account_id="acc1", product=product_v2)
+
+    rows = session.query(Product).filter_by(account_id="acc1", product_id="p1").all()
+    assert len(rows) == 1, "Upsert must not create duplicate rows"
+    assert rows[0].niche == "fitness", "Niche must be updated on upsert"
+    assert rows[0].product_name == "Widget Updated"

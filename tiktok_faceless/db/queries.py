@@ -28,6 +28,7 @@ def cache_product(session: Session, account_id: str, product: AffiliateProduct) 
         existing.product_url = product.product_url
         existing.commission_rate = product.commission_rate
         existing.sales_velocity_score = product.sales_velocity_score
+        existing.niche = product.niche
         existing.cached_at = datetime.utcnow()
         existing.eliminated = False  # Re-caching un-eliminates a product
     else:

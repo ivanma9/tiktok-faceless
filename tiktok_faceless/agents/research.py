@@ -9,7 +9,7 @@ from typing import Any
 from tiktok_faceless.clients import TikTokAPIError, TikTokRateLimitError
 from tiktok_faceless.clients.tiktok import TikTokAPIClient
 from tiktok_faceless.config import load_account_config
-from tiktok_faceless.db.queries import cache_product, get_cached_products
+from tiktok_faceless.db.queries import cache_product, get_cached_products, get_commission_per_view
 from tiktok_faceless.db.session import get_session
 from tiktok_faceless.models.shop import AffiliateProduct
 from tiktok_faceless.state import AgentError, PipelineState
@@ -109,9 +109,28 @@ def research_node(state: PipelineState) -> dict[str, Any]:
     except (TikTokRateLimitError, TikTokAPIError):
         comments = []
 
+    # Decay detection (commit phase only, non-fatal)
+    decay_delta: dict[str, Any] = {}
+    if state.phase == "commit" and state.committed_niche:
+        try:
+            with get_session() as session:
+                cpv = get_commission_per_view(
+                    session, account_id=state.account_id, niche=state.committed_niche
+                )
+            if cpv > 0 and cpv < config.decay_threshold:
+                new_count = state.consecutive_decay_count + 1
+                decay_delta["consecutive_decay_count"] = new_count
+                if new_count >= 2:
+                    decay_delta["niche_decay_alert"] = True
+            elif cpv >= config.decay_threshold:
+                decay_delta["consecutive_decay_count"] = 0
+        except Exception:  # noqa: BLE001
+            pass  # Never block pipeline on decay detection failure
+
     product_dict = best.model_dump()
     product_dict["buyer_language"] = comments
     return {
         "selected_product": product_dict,
         "product_validated": True,
+        **decay_delta,
     }

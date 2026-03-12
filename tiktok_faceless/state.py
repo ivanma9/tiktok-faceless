@@ -61,6 +61,8 @@ class PipelineState(BaseModel):
     last_post_timestamp: float = 0.0
     fyp_reach_rate: float = 1.0
     suppression_alert: bool = False
+    niche_decay_alert: bool = False
+    consecutive_decay_count: int = 0
     kill_video_ids: Annotated[list[str], add] = Field(default_factory=list)
     affiliate_commission_week: float = 0.0
     agent_health: dict[str, bool] = Field(default_factory=dict)

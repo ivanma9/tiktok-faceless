@@ -46,6 +46,43 @@ def cache_product(session: Session, account_id: str, product: AffiliateProduct) 
     session.commit()
 
 
+def get_commission_per_view(
+    session: Session,
+    account_id: str,
+    niche: str,
+    days: int = 7,
+) -> float:
+    """
+    Calculate commission-per-view proxy for a niche over the last N days.
+
+    Uses affiliate_orders / view_count as a proxy for commission revenue per view.
+    Returns 0.0 if no data available (not an error).
+    """
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import func
+
+    from tiktok_faceless.db.models import Video, VideoMetric
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    result = (
+        session.query(
+            func.sum(VideoMetric.affiliate_orders).label("total_orders"),
+            func.sum(VideoMetric.view_count).label("total_views"),
+        )
+        .join(Video, VideoMetric.video_id == Video.tiktok_video_id)
+        .filter(
+            Video.account_id == account_id,
+            Video.niche == niche,
+            VideoMetric.recorded_at >= cutoff,
+        )
+        .first()
+    )
+    if result is None or not result.total_views:
+        return 0.0
+    return float(result.total_orders or 0) / float(result.total_views)
+
+
 def get_cached_products(
     session: Session,
     account_id: str,

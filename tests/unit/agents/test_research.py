@@ -265,3 +265,101 @@ class TestTournamentMode:
 
         assert result["product_validated"] is True
         assert "errors" not in result
+
+
+class TestDecayDetection:
+    def test_alert_set_after_two_consecutive_intervals(self) -> None:
+        state = PipelineState(
+            account_id="acc1",
+            phase="commit",
+            committed_niche="health",
+            consecutive_decay_count=1,  # already had one detection
+        )
+        mock_cfg = _mock_config()
+        mock_cfg.decay_threshold = 0.001
+        with (
+            patch("tiktok_faceless.agents.research.load_account_config", return_value=mock_cfg),
+            patch("tiktok_faceless.agents.research.TikTokAPIClient") as mock_client_cls,
+            patch("tiktok_faceless.agents.research.get_session", return_value=_mock_session_ctx()),
+            patch("tiktok_faceless.agents.research.get_cached_products", return_value=[_PRODUCT]),
+            patch("tiktok_faceless.agents.research.cache_product"),
+            patch("tiktok_faceless.agents.research.get_commission_per_view", return_value=0.0001),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            result = research_node(state)
+        assert result.get("niche_decay_alert") is True
+        assert result.get("consecutive_decay_count") == 2
+
+    def test_no_alert_on_first_detection(self) -> None:
+        state = PipelineState(
+            account_id="acc1",
+            phase="commit",
+            committed_niche="health",
+            consecutive_decay_count=0,
+        )
+        mock_cfg = _mock_config()
+        mock_cfg.decay_threshold = 0.001
+        with (
+            patch("tiktok_faceless.agents.research.load_account_config", return_value=mock_cfg),
+            patch("tiktok_faceless.agents.research.TikTokAPIClient") as mock_client_cls,
+            patch("tiktok_faceless.agents.research.get_session", return_value=_mock_session_ctx()),
+            patch("tiktok_faceless.agents.research.get_cached_products", return_value=[_PRODUCT]),
+            patch("tiktok_faceless.agents.research.cache_product"),
+            patch("tiktok_faceless.agents.research.get_commission_per_view", return_value=0.0001),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            result = research_node(state)
+        assert result.get("niche_decay_alert") is not True
+        assert result.get("consecutive_decay_count") == 1
+
+    def test_counter_resets_when_above_threshold(self) -> None:
+        state = PipelineState(
+            account_id="acc1",
+            phase="commit",
+            committed_niche="health",
+            consecutive_decay_count=1,
+        )
+        mock_cfg = _mock_config()
+        mock_cfg.decay_threshold = 0.001
+        with (
+            patch("tiktok_faceless.agents.research.load_account_config", return_value=mock_cfg),
+            patch("tiktok_faceless.agents.research.TikTokAPIClient") as mock_client_cls,
+            patch("tiktok_faceless.agents.research.get_session", return_value=_mock_session_ctx()),
+            patch("tiktok_faceless.agents.research.get_cached_products", return_value=[_PRODUCT]),
+            patch("tiktok_faceless.agents.research.cache_product"),
+            patch("tiktok_faceless.agents.research.get_commission_per_view", return_value=0.01),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            result = research_node(state)
+        assert result.get("niche_decay_alert") is not True
+        assert result.get("consecutive_decay_count") == 0
+
+    def test_decay_skipped_in_tournament_phase(self) -> None:
+        state = PipelineState(
+            account_id="acc1",
+            phase="tournament",
+            candidate_niches=["health"],
+        )
+        with (
+            patch(
+                "tiktok_faceless.agents.research.load_account_config",
+                return_value=_mock_config(),
+            ),
+            patch("tiktok_faceless.agents.research.TikTokAPIClient") as mock_client_cls,
+            patch("tiktok_faceless.agents.research.get_session", return_value=_mock_session_ctx()),
+            patch("tiktok_faceless.agents.research.get_cached_products", return_value=[]),
+            patch("tiktok_faceless.agents.research.cache_product"),
+            patch("tiktok_faceless.agents.research.get_commission_per_view") as mock_cpv,
+        ):
+            mock_client = MagicMock()
+            mock_client.get_validated_products.return_value = [_PRODUCT]
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            research_node(state)
+        mock_cpv.assert_not_called()

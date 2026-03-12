@@ -34,6 +34,7 @@ class AccountConfig(BaseModel):
     commit_phase_min_videos: int = Field(default=5, ge=1)
     min_commission_rate: float = Field(default=0.05, ge=0.0, le=1.0)
     min_sales_velocity: float = Field(default=0.3, ge=0.0, le=1.0)
+    decay_threshold: float = Field(default=0.001, ge=0.0)
     persona_name: str = ""
     persona_catchphrase: str = ""
     persona_tone: str = "casual"

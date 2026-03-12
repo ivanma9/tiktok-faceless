@@ -10,13 +10,24 @@ from typing import Any
 
 from tiktok_faceless.clients import TikTokAPIError, TikTokAuthError, TikTokRateLimitError
 from tiktok_faceless.clients.tiktok import TikTokAPIClient
-from tiktok_faceless.config import load_account_config
+from tiktok_faceless.config import AccountConfig, load_account_config
 from tiktok_faceless.db.models import Video
 from tiktok_faceless.db.session import get_session
 from tiktok_faceless.state import AgentError, PipelineState
 from tiktok_faceless.utils.timing import is_within_posting_window
 
 _MIN_POST_INTERVAL_SECONDS: float = 3600.0
+
+
+def _phase_post_limit(phase: str, config: AccountConfig) -> int:
+    """Return the daily posting limit for the given phase."""
+    if phase == "tournament":
+        return config.tournament_posts_per_day
+    if phase == "commit":
+        return config.commit_posts_per_day
+    if phase == "scale":
+        return config.scale_posts_per_day
+    return config.max_posts_per_day  # warmup or unknown
 
 
 def publishing_node(state: PipelineState) -> dict[str, Any]:
@@ -41,6 +52,10 @@ def publishing_node(state: PipelineState) -> dict[str, Any]:
     config = load_account_config(state.account_id)
 
     if not is_within_posting_window(config.posting_window_start, config.posting_window_end):
+        return {"deferred": True}
+
+    limit = _phase_post_limit(state.phase, config)
+    if state.videos_produced_today >= limit:
         return {"deferred": True}
 
     if time.time() - state.last_post_timestamp < _MIN_POST_INTERVAL_SECONDS:
@@ -118,4 +133,5 @@ def publishing_node(state: PipelineState) -> dict[str, Any]:
     return {
         "published_video_id": response.video_id,
         "last_post_timestamp": time.time(),
+        "videos_produced_today": state.videos_produced_today + 1,
     }

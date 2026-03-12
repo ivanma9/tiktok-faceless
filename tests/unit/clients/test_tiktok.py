@@ -162,6 +162,48 @@ class TestGetValidatedProducts:
                 )
 
 
+class TestGetAffiliateOrders:
+    def test_returns_list_of_commission_records(self) -> None:
+        from tiktok_faceless.models.shop import CommissionRecord
+        client = TikTokAPIClient(access_token="tok", open_id="oid")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": {
+                "orders": [
+                    {"order_id": "ord1", "product_id": "prod1", "commission_amount": 4.50},
+                    {"order_id": "ord2", "product_id": "prod2", "commission_amount": 2.00},
+                ]
+            }
+        }
+        with patch.object(client._http, "post", return_value=mock_response):
+            orders = client.get_affiliate_orders(account_id="acc1")
+        assert len(orders) == 2
+        assert isinstance(orders[0], CommissionRecord)
+        assert orders[0].order_id == "ord1"
+        assert orders[0].commission_amount == pytest.approx(4.50)
+        assert orders[1].order_id == "ord2"
+        assert orders[1].commission_amount == pytest.approx(2.00)
+
+    def test_returns_empty_list_when_no_orders(self) -> None:
+        client = TikTokAPIClient(access_token="tok", open_id="oid")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": {"orders": []}}
+        with patch.object(client._http, "post", return_value=mock_response):
+            orders = client.get_affiliate_orders(account_id="acc1")
+        assert orders == []
+
+    def test_returns_empty_list_when_data_key_missing(self) -> None:
+        client = TikTokAPIClient(access_token="tok", open_id="oid")
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": {}}
+        with patch.object(client._http, "post", return_value=mock_response):
+            orders = client.get_affiliate_orders(account_id="acc1")
+        assert orders == []
+
+
 class TestGetVideoComments:
     def test_returns_list_of_comment_texts(self) -> None:
         client = TikTokAPIClient(access_token="tok", open_id="oid")

@@ -15,7 +15,7 @@ from tiktok_faceless.clients import (
     TikTokAuthError,
     TikTokRateLimitError,
 )
-from tiktok_faceless.models.shop import AffiliateProduct
+from tiktok_faceless.models.shop import AffiliateProduct, CommissionRecord
 from tiktok_faceless.models.tiktok import TikTokPostResponse, TikTokVideoMetrics
 from tiktok_faceless.utils.retry import api_retry
 
@@ -181,6 +181,25 @@ class TikTokAPIClient:
         self._handle_response(response)
         comments = response.json().get("data", {}).get("comments", [])
         return [str(c.get("text", "")) for c in comments if c.get("text")]
+
+    @api_retry
+    def get_affiliate_orders(self, account_id: str) -> list[CommissionRecord]:
+        """Fetch affiliate commission orders for the account."""
+        self._bucket.consume()
+        response = self._http.post(
+            "/v2/tiktok_shop/affiliate/orders/",
+            json={"open_id": self._open_id},
+        )
+        self._handle_response(response)
+        orders = response.json().get("data", {}).get("orders", [])
+        return [
+            CommissionRecord(
+                order_id=str(o["order_id"]),
+                product_id=str(o["product_id"]),
+                commission_amount=float(o.get("commission_amount", 0.0)),
+            )
+            for o in orders
+        ]
 
     def close(self) -> None:
         """Release the underlying HTTP connection pool."""

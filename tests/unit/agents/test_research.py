@@ -151,6 +151,7 @@ class TestCommentMining:
             result = research_node(_STATE)
 
         mock_client.get_video_comments.assert_not_called()
+        assert result["selected_product"]["buyer_language"] == []
 
     def test_empty_comments_does_not_halt_pipeline(self) -> None:
         with (
@@ -167,6 +168,7 @@ class TestCommentMining:
             result = research_node(_STATE)
 
         assert result["product_validated"] is True
+        assert result["selected_product"]["buyer_language"] == []
         assert "errors" not in result
 
 

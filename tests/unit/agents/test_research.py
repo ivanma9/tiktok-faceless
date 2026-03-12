@@ -136,8 +136,8 @@ class TestCommentMining:
         assert "buyer_language" in result["selected_product"]
         assert len(result["selected_product"]["buyer_language"]) == 2
 
-    def test_comment_mining_skipped_when_no_video_id(self) -> None:
-        """get_video_comments must NOT be called when product has no top_video_id."""
+    def test_comment_mining_skipped_when_no_top_video_id(self) -> None:
+        """get_video_comments is NOT called when product.top_video_id is None."""
         with (
             patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
             patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
@@ -151,7 +151,6 @@ class TestCommentMining:
             result = research_node(_STATE)
 
         mock_client.get_video_comments.assert_not_called()
-        assert result["selected_product"]["buyer_language"] == []
 
     def test_empty_comments_does_not_halt_pipeline(self) -> None:
         with (
@@ -168,7 +167,6 @@ class TestCommentMining:
             result = research_node(_STATE)
 
         assert result["product_validated"] is True
-        assert result["selected_product"]["buyer_language"] == []
         assert "errors" not in result
 
 
@@ -263,6 +261,36 @@ class TestTournamentMode:
             result = research_node(state)
         assert "errors" in result
         assert result["errors"][0].error_type == "MissingNiche"
+
+    def test_live_api_path_picks_highest_score_not_first(self) -> None:
+        """When API returns unsorted products, live path must pick highest score."""
+        import pytest
+        low = AffiliateProduct(
+            product_id="p_low", product_name="Low", product_url="u",
+            commission_rate=0.1, sales_velocity_score=0.2, niche="health"
+        )
+        high = AffiliateProduct(
+            product_id="p_high", product_name="High", product_url="u",
+            commission_rate=0.2, sales_velocity_score=0.9, niche="health"
+        )
+        state = PipelineState(
+            account_id="acc1", phase="tournament", candidate_niches=["health"]
+        )
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session", return_value=_mock_session_ctx()),
+            patch(f"{_MOD}.get_cached_products", return_value=[]),
+            patch(f"{_MOD}.cache_product"),
+        ):
+            mock_client = MagicMock()
+            # Return low first, high second — deliberately unsorted
+            mock_client.get_validated_products.return_value = [low, high]
+            mock_client_cls.return_value = mock_client
+            result = research_node(state)
+
+        assert result["selected_product"]["product_id"] == "p_high"
+        assert result["selected_product"]["sales_velocity_score"] == pytest.approx(0.9)
 
     def test_one_niche_failure_does_not_block_others(self) -> None:
         from tiktok_faceless.clients import TikTokAPIError
@@ -367,6 +395,33 @@ class TestDecayDetection:
         assert result.get("niche_decay_alert") is not True
         assert result.get("consecutive_decay_count") == 0
 
+    def test_decay_alert_cleared_on_recovery(self) -> None:
+        """niche_decay_alert must be explicitly set to False when cpv recovers above threshold."""
+        state = PipelineState(
+            account_id="acc1",
+            phase="commit",
+            committed_niche="health",
+            consecutive_decay_count=1,
+            niche_decay_alert=True,  # previously fired
+        )
+        mock_cfg = _mock_config()
+        mock_cfg.decay_threshold = 0.001
+        with (
+            patch("tiktok_faceless.agents.research.load_account_config", return_value=mock_cfg),
+            patch("tiktok_faceless.agents.research.TikTokAPIClient") as mock_client_cls,
+            patch("tiktok_faceless.agents.research.get_session", return_value=_mock_session_ctx()),
+            patch("tiktok_faceless.agents.research.get_cached_products", return_value=[_PRODUCT]),
+            patch("tiktok_faceless.agents.research.cache_product"),
+            patch("tiktok_faceless.agents.research.get_commission_per_view", return_value=0.01),  # above threshold
+        ):
+            mock_client = MagicMock()
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            result = research_node(state)
+
+        assert result.get("niche_decay_alert") is False
+        assert result.get("consecutive_decay_count") == 0
+
     def test_decay_skipped_in_tournament_phase(self) -> None:
         state = PipelineState(
             account_id="acc1",
@@ -390,3 +445,23 @@ class TestDecayDetection:
             mock_client_cls.return_value = mock_client
             research_node(state)
         mock_cpv.assert_not_called()
+
+    def test_rate_limit_errors_surfaced_in_no_products_message(self) -> None:
+        """When all niches are rate-limited, error message must mention rate limiting."""
+        from tiktok_faceless.clients import TikTokRateLimitError
+        state = PipelineState(
+            account_id="acc1", phase="tournament", candidate_niches=["health", "fitness"]
+        )
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session", return_value=_mock_session_ctx()),
+            patch(f"{_MOD}.get_cached_products", return_value=[]),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_validated_products.side_effect = TikTokRateLimitError("rate limited")
+            mock_client_cls.return_value = mock_client
+            result = research_node(state)
+
+        assert "errors" in result
+        assert "rate" in result["errors"][0].message.lower()

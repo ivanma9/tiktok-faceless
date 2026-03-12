@@ -59,6 +59,7 @@ def research_node(state: PipelineState) -> dict[str, Any]:
 
     # Collect best product per niche
     all_best: list[AffiliateProduct] = []
+    niche_errors: list[tuple[str, str]] = []
 
     for niche in niches:
         # Cache check per niche
@@ -77,24 +78,33 @@ def research_node(state: PipelineState) -> dict[str, Any]:
                 min_commission_rate=config.min_commission_rate,
                 min_sales_velocity=config.min_sales_velocity,
             )
-        except (TikTokRateLimitError, TikTokAPIError):
-            # Non-fatal per niche — continue to next niche
+        except TikTokRateLimitError as e:
+            niche_errors.append((niche, f"rate_limited: {e}"))
+            continue
+        except TikTokAPIError as e:
+            niche_errors.append((niche, f"api_error: {e}"))
             continue
 
         if products:
             with get_session() as session:
                 for product in products:
                     cache_product(session, account_id=state.account_id, product=product)
-            all_best.append(products[0])
+            all_best.append(max(products, key=lambda p: p.sales_velocity_score))
 
     if not all_best:
+        error_detail = ""
+        if niche_errors:
+            reasons = "; ".join(f"{n}: {r}" for n, r in niche_errors)
+            error_detail = f" Per-niche failures: {reasons}"
         return {
             "product_validated": False,
             "errors": [
                 AgentError(
                     agent="research",
                     error_type="NoValidatedProducts",
-                    message=f"No products in niches {niches} met the validation thresholds.",
+                    message=(
+                        f"No products in niches {niches} met the validation thresholds.{error_detail}"
+                    ),
                     recovery_suggestion="Try different niches or lower thresholds.",
                 )
             ],
@@ -126,6 +136,7 @@ def research_node(state: PipelineState) -> dict[str, Any]:
                     decay_delta["niche_decay_alert"] = True
             elif cpv >= config.decay_threshold:
                 decay_delta["consecutive_decay_count"] = 0
+                decay_delta["niche_decay_alert"] = False
         except Exception:  # noqa: BLE001
             pass  # Never block pipeline on decay detection failure
 

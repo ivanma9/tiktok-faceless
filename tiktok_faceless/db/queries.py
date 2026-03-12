@@ -41,6 +41,7 @@ def cache_product(session: Session, account_id: str, product: AffiliateProduct) 
                 commission_rate=product.commission_rate,
                 sales_velocity_score=product.sales_velocity_score,
                 cached_at=datetime.utcnow(),
+                eliminated=False,
             )
         )
     session.commit()
@@ -201,7 +202,7 @@ def get_niche_scores(
 
     scored: list[tuple[str, float]] = []
     for row in rows:
-        aff_ctr = int(row.total_clicks or 0) / max(int(row.total_views or 0), 1)
+        aff_ctr = min(1.0, int(row.total_clicks or 0) / max(int(row.total_views or 0), 1))
         retention = max(0.0, min(1.0, float(row.avg_retention_3s or 0.0)))
         norm_orders = int(row.total_orders or 0) / max(max_orders, 1)
         score = 0.40 * aff_ctr + 0.30 * retention + 0.30 * norm_orders

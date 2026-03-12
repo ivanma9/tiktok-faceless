@@ -103,11 +103,13 @@ def research_node(state: PipelineState) -> dict[str, Any]:
     # Pick winner across all niches
     best = max(all_best, key=lambda p: p.sales_velocity_score)
 
-    # Mine buyer-language comments (non-fatal — never blocks pipeline)
-    try:
-        comments = client.get_video_comments(video_id=best.product_id, max_count=20)
-    except (TikTokRateLimitError, TikTokAPIError):
-        comments = []
+    # Mine buyer-language comments only when a real video ID is available (non-fatal)
+    comments: list[str] = []
+    if best.top_video_id:
+        try:
+            comments = client.get_video_comments(video_id=best.top_video_id, max_count=20)
+        except (TikTokRateLimitError, TikTokAPIError):
+            comments = []
 
     # Decay detection (commit phase only, non-fatal)
     decay_delta: dict[str, Any] = {}

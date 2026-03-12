@@ -15,6 +15,16 @@ _PRODUCT = AffiliateProduct(
     niche="health",
 )
 
+_PRODUCT_WITH_VIDEO = AffiliateProduct(
+    product_id="p1",
+    product_name="Widget Pro",
+    product_url="https://shop.tiktok.com/p1",
+    commission_rate=0.15,
+    sales_velocity_score=0.8,
+    niche="health",
+    top_video_id="vid_abc123",
+)
+
 _STATE = PipelineState(
     account_id="acc1",
     phase="commit",
@@ -118,13 +128,30 @@ class TestCommentMining:
             patch(f"{_MOD}.cache_product"),
         ):
             mock_client = MagicMock()
-            mock_client.get_validated_products.return_value = [_PRODUCT]
+            mock_client.get_validated_products.return_value = [_PRODUCT_WITH_VIDEO]
             mock_client.get_video_comments.return_value = ["where can I get this", "does it work"]
             mock_client_cls.return_value = mock_client
             result = research_node(_STATE)
 
         assert "buyer_language" in result["selected_product"]
         assert len(result["selected_product"]["buyer_language"]) == 2
+
+    def test_comment_mining_skipped_when_no_video_id(self) -> None:
+        """get_video_comments must NOT be called when product has no top_video_id."""
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session", return_value=_mock_session_ctx()),
+            patch(f"{_MOD}.get_cached_products", return_value=[]),
+            patch(f"{_MOD}.cache_product"),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_validated_products.return_value = [_PRODUCT]
+            mock_client_cls.return_value = mock_client
+            result = research_node(_STATE)
+
+        mock_client.get_video_comments.assert_not_called()
+        assert result["selected_product"]["buyer_language"] == []
 
     def test_empty_comments_does_not_halt_pipeline(self) -> None:
         with (

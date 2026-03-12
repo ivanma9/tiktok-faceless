@@ -136,6 +136,7 @@ def get_cached_products(
             Product.account_id == account_id,
             Product.niche == niche,
             Product.cached_at >= cutoff,
+            Product.eliminated == False,  # noqa: E712
         )
         .all()
     )
@@ -150,3 +151,86 @@ def get_cached_products(
         )
         for row in rows
     ]
+
+
+def get_niche_scores(
+    session: Session,
+    account_id: str,
+    days: int = 7,
+    min_video_count: int = 1,
+) -> list[tuple[str, float]]:
+    """
+    Compute a weighted tournament score per niche for the given account.
+
+    Score formula (range 0.0–1.0):
+      0.40 * affiliate_ctr + 0.30 * avg_retention_3s + 0.30 * normalized_orders
+
+    Only niches with >= min_video_count distinct posted videos are included.
+    Returns list of (niche, score) tuples sorted descending by score.
+    Returns empty list if no data exists.
+    """
+    from sqlalchemy import func
+
+    from tiktok_faceless.db.models import Video, VideoMetric
+
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    rows = (
+        session.query(
+            Video.niche,
+            func.sum(VideoMetric.affiliate_clicks).label("total_clicks"),
+            func.sum(VideoMetric.view_count).label("total_views"),
+            func.avg(VideoMetric.retention_3s).label("avg_retention_3s"),
+            func.sum(VideoMetric.affiliate_orders).label("total_orders"),
+            func.count(func.distinct(VideoMetric.video_id)).label("video_count"),
+        )
+        .join(Video, VideoMetric.video_id == Video.tiktok_video_id)
+        .filter(
+            Video.account_id == account_id,
+            VideoMetric.recorded_at >= cutoff,
+        )
+        .group_by(Video.niche)
+        .all()
+    )
+
+    # Filter by minimum video count
+    rows = [r for r in rows if (r.video_count or 0) >= min_video_count]
+    if not rows:
+        return []
+
+    max_orders = max(int(r.total_orders or 0) for r in rows)
+
+    scored: list[tuple[str, float]] = []
+    for row in rows:
+        aff_ctr = int(row.total_clicks or 0) / max(int(row.total_views or 0), 1)
+        retention = max(0.0, min(1.0, float(row.avg_retention_3s or 0.0)))
+        norm_orders = int(row.total_orders or 0) / max(max_orders, 1)
+        score = 0.40 * aff_ctr + 0.30 * retention + 0.30 * norm_orders
+        scored.append((row.niche, score))
+
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return scored
+
+
+def flag_eliminated_niches(
+    session: Session,
+    account_id: str,
+    niche_scores: list[tuple[str, float]],
+    threshold_score: float,
+) -> list[str]:
+    """
+    Set Product.eliminated = True for all products in niches scoring <= threshold_score.
+
+    Returns list of niche names newly flagged as eliminated.
+    """
+    eliminated: list[str] = []
+    for niche, score in niche_scores:
+        if score <= threshold_score:
+            (
+                session.query(Product)
+                .filter_by(account_id=account_id, niche=niche)
+                .update({"eliminated": True})
+            )
+            eliminated.append(niche)
+    if eliminated:
+        session.commit()
+    return eliminated

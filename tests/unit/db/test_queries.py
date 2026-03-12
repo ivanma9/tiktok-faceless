@@ -5,14 +5,16 @@ from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from tiktok_faceless.db.models import Base, Product, Video, VideoMetric
 from tiktok_faceless.db.queries import (
     cache_product,
+    flag_eliminated_niches,
     get_cached_products,
     get_commission_per_view,
     get_commission_totals,
+    get_niche_scores,
 )
 from tiktok_faceless.models.shop import AffiliateProduct
 
@@ -168,3 +170,167 @@ class TestGetCommissionTotals:
         session.commit()
         result = get_commission_totals(session, account_id="acc1")
         assert result == {}
+
+
+class TestGetNicheScores:
+
+    def test_returns_ranked_scores_descending(self, session: Session) -> None:
+        """Higher-performing niche appears first in output."""
+        now = datetime.utcnow()
+        session.add(Video(
+            id="v1", account_id="acc1", niche="fitness",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v1", created_at=now,
+        ))
+        session.add(Video(
+            id="v2", account_id="acc1", niche="beauty",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v2", created_at=now,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v1", account_id="acc1",
+            recorded_at=now - timedelta(days=1),
+            view_count=1000, affiliate_clicks=50, retention_3s=0.8, affiliate_orders=10,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v2", account_id="acc1",
+            recorded_at=now - timedelta(days=1),
+            view_count=1000, affiliate_clicks=5, retention_3s=0.3, affiliate_orders=1,
+        ))
+        session.commit()
+
+        result = get_niche_scores(session, account_id="acc1")
+
+        assert len(result) == 2
+        assert result[0][0] == "fitness"
+        assert result[1][0] == "beauty"
+        assert result[0][1] > result[1][1]
+
+    def test_returns_empty_list_when_no_data(self, session: Session) -> None:
+        result = get_niche_scores(session, account_id="acc1")
+        assert result == []
+
+    def test_excludes_metrics_outside_window(self, session: Session) -> None:
+        now = datetime.utcnow()
+        session.add(Video(
+            id="v1", account_id="acc1", niche="fitness",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v1", created_at=now,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v1", account_id="acc1",
+            recorded_at=now - timedelta(days=10),
+            view_count=1000, affiliate_clicks=100, retention_3s=0.9, affiliate_orders=20,
+        ))
+        session.commit()
+
+        result = get_niche_scores(session, account_id="acc1")
+        assert result == []
+
+    def test_min_video_count_filters_low_sample_niches(self, session: Session) -> None:
+        now = datetime.utcnow()
+        session.add(Video(
+            id="v1", account_id="acc1", niche="fitness",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v1", created_at=now,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v1", account_id="acc1",
+            recorded_at=now - timedelta(days=1),
+            view_count=500, affiliate_clicks=10, retention_3s=0.5, affiliate_orders=2,
+        ))
+        session.commit()
+
+        result = get_niche_scores(session, account_id="acc1", min_video_count=2)
+        assert result == []
+
+    def test_scores_are_between_0_and_1(self, session: Session) -> None:
+        now = datetime.utcnow()
+        session.add(Video(
+            id="v1", account_id="acc1", niche="fitness",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v1", created_at=now,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v1", account_id="acc1",
+            recorded_at=now - timedelta(days=1),
+            view_count=1000, affiliate_clicks=200, retention_3s=0.95, affiliate_orders=15,
+        ))
+        session.commit()
+
+        result = get_niche_scores(session, account_id="acc1")
+        for _niche, score in result:
+            assert 0.0 <= score <= 1.0
+
+
+class TestFlagEliminatedNiches:
+
+    def test_flags_low_score_niches(self, session: Session) -> None:
+        session.add(Product(
+            id="p1", account_id="acc1", niche="beauty",
+            product_id="prod1", product_name="X", product_url="https://x.com",
+            commission_rate=0.1, sales_velocity_score=0.5,
+            cached_at=datetime.utcnow(), eliminated=False,
+        ))
+        session.commit()
+
+        niche_scores = [("beauty", 0.0), ("fitness", 0.8)]
+        eliminated = flag_eliminated_niches(session, "acc1", niche_scores, threshold_score=0.1)
+
+        assert "beauty" in eliminated
+        assert "fitness" not in eliminated
+        product = session.query(Product).filter_by(product_id="prod1").first()
+        assert product.eliminated is True
+
+    def test_does_not_flag_above_threshold(self, session: Session) -> None:
+        session.add(Product(
+            id="p1", account_id="acc1", niche="fitness",
+            product_id="prod1", product_name="X", product_url="https://x.com",
+            commission_rate=0.1, sales_velocity_score=0.5,
+            cached_at=datetime.utcnow(), eliminated=False,
+        ))
+        session.commit()
+
+        eliminated = flag_eliminated_niches(
+            session, "acc1", [("fitness", 0.5)], threshold_score=0.1
+        )
+
+        assert eliminated == []
+        product = session.query(Product).filter_by(product_id="prod1").first()
+        assert product.eliminated is False
+
+    def test_returns_empty_list_when_no_eliminations(self, session: Session) -> None:
+        result = flag_eliminated_niches(session, "acc1", [("fitness", 0.9)], threshold_score=0.0)
+        assert result == []
+
+
+class TestGetCachedProductsExcludesEliminated:
+
+    def test_excludes_eliminated_products(self, session: Session) -> None:
+        now = datetime.utcnow()
+        session.add(Product(
+            id="p1", account_id="acc1", niche="fitness",
+            product_id="prod1", product_name="Active Wear", product_url="https://x.com",
+            commission_rate=0.1, sales_velocity_score=0.8,
+            cached_at=now, eliminated=True,
+        ))
+        session.add(Product(
+            id="p2", account_id="acc1", niche="fitness",
+            product_id="prod2", product_name="Yoga Mat", product_url="https://y.com",
+            commission_rate=0.12, sales_velocity_score=0.7,
+            cached_at=now, eliminated=False,
+        ))
+        session.commit()
+
+        result = get_cached_products(session, account_id="acc1", niche="fitness")
+
+        assert len(result) == 1
+        assert result[0].product_id == "prod2"
+
+    def test_returns_all_when_none_eliminated(self, session: Session) -> None:
+        now = datetime.utcnow()
+        session.add(Product(
+            id="p1", account_id="acc1", niche="fitness",
+            product_id="prod1", product_name="Gym Gloves", product_url="https://x.com",
+            commission_rate=0.1, sales_velocity_score=0.6,
+            cached_at=now, eliminated=False,
+        ))
+        session.commit()
+
+        result = get_cached_products(session, account_id="acc1", niche="fitness")
+        assert len(result) == 1

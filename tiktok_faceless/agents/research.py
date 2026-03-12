@@ -42,6 +42,10 @@ def research_node(state: PipelineState) -> dict[str, Any]:
         }
 
     config = load_account_config(state.account_id)
+    client = TikTokAPIClient(
+        access_token=config.tiktok_access_token,
+        open_id=config.tiktok_open_id,
+    )
 
     # Cache check: skip API if fresh products exist
     with get_session() as session:
@@ -49,63 +53,66 @@ def research_node(state: PipelineState) -> dict[str, Any]:
 
     if cached:
         best = max(cached, key=lambda p: p.sales_velocity_score)
-        return {
-            "selected_product": best.model_dump(),
-            "product_validated": True,
-        }
+    else:
+        # Live API fetch
+        try:
+            products = client.get_validated_products(
+                account_id=state.account_id,
+                niche=niche,
+                min_commission_rate=config.min_commission_rate,
+                min_sales_velocity=config.min_sales_velocity,
+            )
+        except (TikTokRateLimitError, TikTokAPIError) as e:
+            return {
+                "errors": [
+                    AgentError(
+                        agent="research",
+                        error_type=type(e).__name__,
+                        message=str(e),
+                        recovery_suggestion=(
+                            "TikTok API error during product search. "
+                            "Check rate limits and credentials."
+                        ),
+                    )
+                ]
+            }
 
-    # Live API fetch
-    client = TikTokAPIClient(
-        access_token=config.tiktok_access_token,
-        open_id=config.tiktok_open_id,
-    )
+        if not products:
+            return {
+                "product_validated": False,
+                "errors": [
+                    AgentError(
+                        agent="research",
+                        error_type="NoValidatedProducts",
+                        message=(
+                            f"No products in niche '{niche}' met the validation thresholds "
+                            f"(min_commission={config.min_commission_rate}, "
+                            f"min_velocity={config.min_sales_velocity})"
+                        ),
+                        recovery_suggestion=(
+                            f"Try a different niche or lower the thresholds. "
+                            f"Current niche: {niche}."
+                        ),
+                    )
+                ],
+            }
+
+        # Cache results
+        with get_session() as session:
+            for product in products:
+                cache_product(session, account_id=state.account_id, product=product)
+
+        best = products[0]  # already sorted by sales_velocity_score descending
+
+    # Mine buyer-language comments (non-fatal — never blocks pipeline)
     try:
-        products = client.get_validated_products(
-            account_id=state.account_id,
-            niche=niche,
-            min_commission_rate=config.min_commission_rate,
-            min_sales_velocity=config.min_sales_velocity,
-        )
-    except (TikTokRateLimitError, TikTokAPIError) as e:
-        return {
-            "errors": [
-                AgentError(
-                    agent="research",
-                    error_type=type(e).__name__,
-                    message=str(e),
-                    recovery_suggestion=(
-                        "TikTok API error during product search. Check rate limits and credentials."
-                    ),
-                )
-            ]
-        }
+        comments = client.get_video_comments(video_id=best.product_id, max_count=20)
+    except (TikTokRateLimitError, TikTokAPIError):
+        comments = []
 
-    if not products:
-        return {
-            "product_validated": False,
-            "errors": [
-                AgentError(
-                    agent="research",
-                    error_type="NoValidatedProducts",
-                    message=(
-                        f"No products in niche '{niche}' met the validation thresholds "
-                        f"(min_commission={config.min_commission_rate}, "
-                        f"min_velocity={config.min_sales_velocity})"
-                    ),
-                    recovery_suggestion=(
-                        f"Try a different niche or lower the thresholds. Current niche: {niche}."
-                    ),
-                )
-            ],
-        }
-
-    # Cache results
-    with get_session() as session:
-        for product in products:
-            cache_product(session, account_id=state.account_id, product=product)
-
-    best = products[0]  # already sorted by sales_velocity_score descending
+    product_dict = best.model_dump()
+    product_dict["buyer_language"] = comments
     return {
-        "selected_product": best.model_dump(),
+        "selected_product": product_dict,
         "product_validated": True,
     }

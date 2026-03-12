@@ -51,6 +51,7 @@ class TestResearchNodeSuccess:
         ):
             mock_client = MagicMock()
             mock_client.get_validated_products.return_value = [_PRODUCT]
+            mock_client.get_video_comments.return_value = []
             mock_client_cls.return_value = mock_client
 
             result = research_node(_STATE)
@@ -68,6 +69,7 @@ class TestResearchNodeSuccess:
             patch(f"{_MOD}.cache_product"),
         ):
             mock_client = MagicMock()
+            mock_client.get_video_comments.return_value = []
             mock_client_cls.return_value = mock_client
 
             result = research_node(_STATE)
@@ -87,6 +89,7 @@ class TestResearchNodeNoProducts:
         ):
             mock_client = MagicMock()
             mock_client.get_validated_products.return_value = []
+            mock_client.get_video_comments.return_value = []
             mock_client_cls.return_value = mock_client
 
             result = research_node(_STATE)
@@ -103,3 +106,40 @@ class TestResearchNodeNoProducts:
             result = research_node(state)
         assert "errors" in result
         assert result["errors"][0].error_type == "MissingNiche"
+
+
+class TestCommentMining:
+    def test_buyer_language_added_to_selected_product(self) -> None:
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session", return_value=_mock_session_ctx()),
+            patch(f"{_MOD}.get_cached_products", return_value=[]),
+            patch(f"{_MOD}.cache_product"),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_validated_products.return_value = [_PRODUCT]
+            mock_client.get_video_comments.return_value = ["where can I get this", "does it work"]
+            mock_client_cls.return_value = mock_client
+            result = research_node(_STATE)
+
+        assert "buyer_language" in result["selected_product"]
+        assert len(result["selected_product"]["buyer_language"]) == 2
+
+    def test_empty_comments_does_not_halt_pipeline(self) -> None:
+        with (
+            patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
+            patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
+            patch(f"{_MOD}.get_session", return_value=_mock_session_ctx()),
+            patch(f"{_MOD}.get_cached_products", return_value=[]),
+            patch(f"{_MOD}.cache_product"),
+        ):
+            mock_client = MagicMock()
+            mock_client.get_validated_products.return_value = [_PRODUCT]
+            mock_client.get_video_comments.return_value = []
+            mock_client_cls.return_value = mock_client
+            result = research_node(_STATE)
+
+        assert result["product_validated"] is True
+        assert result["selected_product"]["buyer_language"] == []
+        assert "errors" not in result

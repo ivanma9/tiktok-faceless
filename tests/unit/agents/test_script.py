@@ -188,3 +188,48 @@ class TestScriptNodeHookVariants:
             result = script_node(state)
         assert result.get("product_validated") is not False  # shouldn't be an error
         assert "current_script" in result
+
+
+def test_partial_success_returns_completed_variants() -> None:
+    """If archetype 2 fails with LLMError, archetype 1's script must still be returned."""
+    from tiktok_faceless.clients import LLMError
+    from tiktok_faceless.agents.script import script_node
+    from tiktok_faceless.state import PipelineState
+
+    state = PipelineState(
+        account_id="acc1",
+        selected_product={
+            "product_id": "p1", "product_name": "Widget", "product_url": "u",
+            "commission_rate": 0.1, "sales_velocity_score": 0.5, "niche": "health",
+            "buyer_language": [],
+        },
+    )
+    call_count = 0
+
+    def flaky_generate(prompt: str, **kwargs: object) -> str:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise LLMError("archetype 2 failed")
+        return f"script for call {call_count}"
+
+    mock_cfg = MagicMock()
+    mock_cfg.anthropic_api_key = "key"
+    mock_cfg.persona_name = ""
+    mock_cfg.persona_catchphrase = ""
+    mock_cfg.persona_tone = "casual"
+
+    with (
+        patch("tiktok_faceless.agents.script.load_account_config", return_value=mock_cfg),
+        patch("tiktok_faceless.agents.script.LLMClient") as mock_llm_cls,
+    ):
+        mock_llm = MagicMock()
+        mock_llm.generate_script.side_effect = flaky_generate
+        mock_llm_cls.return_value = mock_llm
+        result = script_node(state)
+
+    # Should have 2 variants (1 and 3), not return an error
+    assert "hook_variants" in result
+    assert len(result["hook_variants"]) == 2
+    assert "errors" not in result
+    assert "current_script" in result

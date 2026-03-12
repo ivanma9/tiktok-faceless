@@ -48,3 +48,31 @@ class TestLLMClient:
         ):
             with pytest.raises(LLMError):
                 client.generate_script("prompt")
+
+
+def test_generate_script_retries_on_api_status_error() -> None:
+    """generate_script must retry on transient anthropic.APIStatusError."""
+    import anthropic
+    from tiktok_faceless.clients.llm import LLMClient
+
+    client = LLMClient(api_key="test")
+    call_count = 0
+
+    def flaky_create(**kwargs: object) -> MagicMock:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 2:
+            raise anthropic.APIStatusError(
+                "overloaded",
+                response=MagicMock(status_code=529, headers={}),
+                body={},
+            )
+        msg = MagicMock()
+        msg.content = [MagicMock(text="script text")]
+        return msg
+
+    with patch.object(client._client.messages, "create", side_effect=flaky_create):
+        result = client.generate_script(prompt="test prompt")
+
+    assert result == "script text"
+    assert call_count == 2

@@ -73,29 +73,32 @@ def script_node(state: PipelineState) -> dict[str, Any]:
     config = load_account_config(state.account_id)
     buyer_language: list[str] = state.selected_product.get("buyer_language") or []
 
-    try:
-        llm = LLMClient(api_key=config.anthropic_api_key)
-        variants = []
-        for archetype in THREE_HOOK_ARCHETYPES:
-            prompt = _build_script_prompt(
-                state.selected_product,
-                archetype,
-                buyer_language=buyer_language,
-                persona_name=config.persona_name,
-                persona_catchphrase=config.persona_catchphrase,
-                persona_tone=config.persona_tone,
-            )
+    llm = LLMClient(api_key=config.anthropic_api_key)
+    variants = []
+    for archetype in THREE_HOOK_ARCHETYPES:
+        prompt = _build_script_prompt(
+            state.selected_product,
+            archetype,
+            buyer_language=buyer_language,
+            persona_name=config.persona_name,
+            persona_catchphrase=config.persona_catchphrase,
+            persona_tone=config.persona_tone,
+        )
+        try:
             text = llm.generate_script(prompt=prompt)
             if not text or not text.strip():
-                raise LLMError(f"LLM returned empty script for archetype '{archetype}'")
+                continue  # skip empty, try next archetype
             variants.append({"archetype": archetype, "script": text.strip()})
-    except LLMError as e:
+        except LLMError:
+            continue  # non-fatal per archetype
+
+    if not variants:
         return {
             "errors": [
                 AgentError(
                     agent="script",
                     error_type="LLMError",
-                    message=str(e),
+                    message="All 3 archetypes failed — no script generated.",
                     recovery_suggestion=(
                         "LLM API error during script generation. Check API key and quota."
                     ),

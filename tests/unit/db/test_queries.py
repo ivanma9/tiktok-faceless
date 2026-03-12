@@ -240,6 +240,36 @@ class TestGetNicheScores:
         result = get_niche_scores(session, account_id="acc1", min_video_count=2)
         assert result == []
 
+    def test_excludes_other_account_niches(self, session: Session) -> None:
+        """Metrics from a different account_id do not affect scores for acc1."""
+        now = datetime.utcnow()
+        session.add(Video(
+            id="v1", account_id="acc1", niche="fitness",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v1", created_at=now,
+        ))
+        session.add(Video(
+            id="v2", account_id="acc2", niche="fitness",
+            lifecycle_state="posted", tiktok_video_id="tiktok-v2", created_at=now,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v1", account_id="acc1",
+            recorded_at=now - timedelta(days=1),
+            view_count=100, affiliate_clicks=5, retention_3s=0.5, affiliate_orders=2,
+        ))
+        session.add(VideoMetric(
+            video_id="tiktok-v2", account_id="acc2",
+            recorded_at=now - timedelta(days=1),
+            view_count=9999, affiliate_clicks=9999, retention_3s=0.99, affiliate_orders=999,
+        ))
+        session.commit()
+
+        result = get_niche_scores(session, account_id="acc1")
+
+        assert len(result) == 1
+        assert result[0][0] == "fitness"
+        # Score should be based on acc1's metrics only, not acc2's inflated metrics
+        assert result[0][1] < 0.5
+
     def test_scores_are_between_0_and_1(self, session: Session) -> None:
         now = datetime.utcnow()
         session.add(Video(
@@ -297,6 +327,44 @@ class TestFlagEliminatedNiches:
     def test_returns_empty_list_when_no_eliminations(self, session: Session) -> None:
         result = flag_eliminated_niches(session, "acc1", [("fitness", 0.9)], threshold_score=0.0)
         assert result == []
+
+    def test_does_not_flag_other_account_products(self, session: Session) -> None:
+        """Products from acc2 are not affected when flagging for acc1."""
+        session.add(Product(
+            id="p1", account_id="acc1", niche="beauty",
+            product_id="prod1", product_name="X", product_url="https://x.com",
+            commission_rate=0.1, sales_velocity_score=0.5,
+            cached_at=datetime.utcnow(), eliminated=False,
+        ))
+        session.add(Product(
+            id="p2", account_id="acc2", niche="beauty",
+            product_id="prod2", product_name="Y", product_url="https://y.com",
+            commission_rate=0.1, sales_velocity_score=0.5,
+            cached_at=datetime.utcnow(), eliminated=False,
+        ))
+        session.commit()
+
+        flag_eliminated_niches(session, "acc1", [("beauty", 0.0)], threshold_score=0.1)
+
+        acc2_product = session.query(Product).filter_by(product_id="prod2").first()
+        assert acc2_product.eliminated is False
+
+    def test_idempotent_second_call_returns_empty(self, session: Session) -> None:
+        """Calling flag_eliminated_niches twice returns [] on the second call."""
+        session.add(Product(
+            id="p1", account_id="acc1", niche="beauty",
+            product_id="prod1", product_name="X", product_url="https://x.com",
+            commission_rate=0.1, sales_velocity_score=0.5,
+            cached_at=datetime.utcnow(), eliminated=False,
+        ))
+        session.commit()
+
+        niche_scores = [("beauty", 0.0)]
+        first = flag_eliminated_niches(session, "acc1", niche_scores, threshold_score=0.1)
+        second = flag_eliminated_niches(session, "acc1", niche_scores, threshold_score=0.1)
+
+        assert "beauty" in first
+        assert second == []  # Already eliminated — not newly flagged
 
 
 class TestGetCachedProductsExcludesEliminated:

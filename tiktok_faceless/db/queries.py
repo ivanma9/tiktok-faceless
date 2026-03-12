@@ -29,6 +29,7 @@ def cache_product(session: Session, account_id: str, product: AffiliateProduct) 
         existing.commission_rate = product.commission_rate
         existing.sales_velocity_score = product.sales_velocity_score
         existing.cached_at = datetime.utcnow()
+        existing.eliminated = False  # Re-caching un-eliminates a product
     else:
         session.add(
             Product(
@@ -164,7 +165,7 @@ def get_niche_scores(
     Compute a weighted tournament score per niche for the given account.
 
     Score formula (range 0.0–1.0):
-      0.40 * affiliate_ctr + 0.30 * avg_retention_3s + 0.30 * normalized_orders
+      0.40 * min(1.0, affiliate_ctr) + 0.30 * avg_retention_3s + 0.30 * normalized_orders
 
     Only niches with >= min_video_count distinct posted videos are included.
     Returns list of (niche, score) tuples sorted descending by score.
@@ -221,17 +222,19 @@ def flag_eliminated_niches(
     """
     Set Product.eliminated = True for all products in niches scoring <= threshold_score.
 
-    Returns list of niche names newly flagged as eliminated.
+    Returns list of niche names NEWLY flagged as eliminated (previously not eliminated).
+    Idempotent: repeated calls with same inputs return [] on subsequent calls.
     """
     eliminated: list[str] = []
     for niche, score in niche_scores:
         if score <= threshold_score:
-            (
+            updated = (
                 session.query(Product)
-                .filter_by(account_id=account_id, niche=niche)
+                .filter_by(account_id=account_id, niche=niche, eliminated=False)
                 .update({"eliminated": True})
             )
-            eliminated.append(niche)
+            if updated > 0:
+                eliminated.append(niche)
     if eliminated:
         session.commit()
     return eliminated

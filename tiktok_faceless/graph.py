@@ -5,7 +5,10 @@ Call build_graph() to get a compiled graph ready for invocation.
 Implementation: Story 1.7 — Orchestrator Pipeline Wiring & Crash Recovery
 """
 
-from langgraph.checkpoint.memory import MemorySaver
+import os
+import sqlite3
+
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -18,15 +21,19 @@ from tiktok_faceless.state import PipelineState
 
 
 def _route_after_orchestrator(state: PipelineState) -> str:
-    """Route to END on errors or duplicate publish; otherwise continue to script."""
-    if state.errors or state.published_video_id is not None:
+    """Route to END only when a video has already been published (duplicate-publish guard).
+
+    Errors alone do NOT halt the pipeline — the orchestrator persists them to DB
+    and updates agent_health; routing continues to 'script' on every cycle.
+    """
+    if state.published_video_id is not None:
         return END
     return "script"
 
 
 def build_graph() -> CompiledStateGraph:  # type: ignore[type-arg]
     """
-    Assemble and compile the 5-node pipeline graph with MemorySaver checkpointer.
+    Assemble and compile the 5-node pipeline graph with SqliteSaver checkpointer.
 
     Node order: orchestrator → script → monetization → production → publishing
     """
@@ -45,4 +52,7 @@ def build_graph() -> CompiledStateGraph:  # type: ignore[type-arg]
     graph.add_edge("production", "publishing")
     graph.add_edge("publishing", END)
 
-    return graph.compile(checkpointer=MemorySaver())
+    checkpoint_db = os.environ.get("CHECKPOINT_DB_PATH", "./checkpoints.db")
+    conn = sqlite3.connect(checkpoint_db, check_same_thread=False)
+    checkpointer = SqliteSaver(conn)
+    return graph.compile(checkpointer=checkpointer)

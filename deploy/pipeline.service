@@ -1,0 +1,18 @@
+[Unit]
+Description=TikTok Faceless Pipeline
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+User=tiktok
+Group=tiktok
+WorkingDirectory=/home/tiktok/tiktok-faceless
+EnvironmentFile=/home/tiktok/tiktok-faceless/.env
+ExecStart=/home/tiktok/tiktok-faceless/.venv/bin/python -m tiktok_faceless.main
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tiktok-pipeline
+
+[Install]
+WantedBy=multi-user.target

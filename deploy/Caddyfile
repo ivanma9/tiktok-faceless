@@ -1,0 +1,5 @@
+# Replace dashboard.yourdomain.com with your actual domain before deploying
+dashboard.yourdomain.com {
+    reverse_proxy 127.0.0.1:8501
+    encode gzip
+}

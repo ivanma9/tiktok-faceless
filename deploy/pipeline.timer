@@ -1,0 +1,11 @@
+[Unit]
+Description=Run TikTok Faceless Pipeline every 30 minutes
+Requires=tiktok-pipeline.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=30min
+Unit=tiktok-pipeline.service
+
+[Install]
+WantedBy=timers.target

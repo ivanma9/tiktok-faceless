@@ -28,8 +28,8 @@ env/
 *.sqlite
 *.sqlite3
 
-# Alembic
-tiktok_faceless/db/migrations/versions/*.py
+# Alembic — migration files must be committed; do NOT gitignore them
+# tiktok_faceless/db/migrations/versions/*.py  ← removed: was silently excluding migration files
 
 # IDE
 .vscode/

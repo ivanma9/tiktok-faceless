@@ -21,7 +21,7 @@ apt-get update -qq && apt-get install -y -qq caddy
 useradd --system --create-home --shell /bin/bash tiktok 2>/dev/null || true
 
 # Clone repo — update YOUR_USERNAME before running
-REPO_URL="${REPO_URL:-https://github.com/YOUR_USERNAME/tiktok-faceless.git}"
+REPO_URL="${REPO_URL:-https://github.com/ivanma9/tiktok-faceless.git}"
 INSTALL_DIR="/home/tiktok/tiktok-faceless"
 
 if [ -d "$INSTALL_DIR" ]; then

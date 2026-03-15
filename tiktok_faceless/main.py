@@ -58,8 +58,12 @@ def _run_resume(account_id: str, agent: str) -> None:
 
 def run_pipeline_for_account(account_id: str, graph: CompiledStateGraph) -> None:
     """Run the pipeline for a single account using an isolated thread_id."""
-    load_account_config(account_id)
-    initial_state = PipelineState(account_id=account_id)
+    config = load_account_config(account_id)
+    initial_state = PipelineState(
+        account_id=account_id,
+        phase="tournament",
+        candidate_niches=config.niche_pool,
+    )
     try:
         graph.invoke(
             initial_state.model_dump(),

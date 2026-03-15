@@ -80,7 +80,13 @@ def run_auth_flow():
     webbrowser.open(auth_url)
 
     print("After authorizing, you'll be redirected to a page showing your code.")
-    code = input("Paste the authorization code here: ").strip()
+    raw = input("Paste the full redirect URL or just the code here: ").strip()
+    if "code=" in raw:
+        from urllib.parse import urlparse, parse_qs
+        parsed = parse_qs(urlparse(raw).query)
+        code = parsed["code"][0]
+    else:
+        code = raw
 
     print("Exchanging code for tokens...")
     token_data = exchange_code(code)

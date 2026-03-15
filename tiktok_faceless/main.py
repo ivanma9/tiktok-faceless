@@ -72,14 +72,14 @@ def run_pipeline_for_account(account_id: str, graph: CompiledStateGraph) -> None
 def run_all_accounts(graph: CompiledStateGraph) -> None:
     """Fetch all active accounts and run the pipeline for each serially."""
     with get_session() as session:
-        accounts = get_active_accounts(session)
-    if not accounts:
+        account_ids = [a.account_id for a in get_active_accounts(session)]
+    if not account_ids:
         logger.warning("No active accounts found — nothing to run")
         return
-    logger.info("Running pipeline for %d active accounts", len(accounts))
-    for account in accounts:
-        run_pipeline_for_account(account.account_id, graph)
-        logger.info("Completed pipeline run for account %s", account.account_id)
+    logger.info("Running pipeline for %d active accounts", len(account_ids))
+    for account_id in account_ids:
+        run_pipeline_for_account(account_id, graph)
+        logger.info("Completed pipeline run for account %s", account_id)
 
 
 def _run_pipeline() -> None:

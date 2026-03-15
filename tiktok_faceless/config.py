@@ -81,4 +81,9 @@ def load_account_config(account_id: str) -> AccountConfig:
         creatomate_template_id=os.environ.get("CREATOMATE_TEMPLATE_ID", ""),
         telegram_bot_token=os.environ.get("TELEGRAM_BOT_TOKEN", ""),
         telegram_chat_id=os.environ.get("TELEGRAM_CHAT_ID", ""),
+        niche_pool=[
+            n.strip()
+            for n in os.environ.get("NICHE_POOL", "").split(",")
+            if n.strip()
+        ],
     )

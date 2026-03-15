@@ -2,7 +2,10 @@
 
 from unittest.mock import MagicMock, patch
 
-from tiktok_faceless.graph import build_graph
+from langgraph.graph import END
+
+from tiktok_faceless.graph import _route_after_orchestrator, build_graph
+from tiktok_faceless.state import AgentError, PipelineState
 
 
 class TestBuildGraph:
@@ -19,7 +22,10 @@ class TestBuildGraph:
     def test_graph_invocable_with_mocked_nodes(self) -> None:
         """Graph can be invoked end-to-end when all agent nodes are mocked to return {}."""
         empty: dict = {}
-        with patch("tiktok_faceless.agents.orchestrator.get_session") as mock_gs:
+        with (
+            patch("tiktok_faceless.agents.orchestrator.get_session") as mock_gs,
+            patch("tiktok_faceless.agents.orchestrator.get_paused_agents", return_value=[]),
+        ):
             mock_ctx = MagicMock()
             mock_ctx.__enter__ = MagicMock(return_value=MagicMock())
             mock_ctx.__exit__ = MagicMock(return_value=False)
@@ -34,7 +40,9 @@ class TestBuildGraph:
                         "tiktok_faceless.agents.monetization.load_account_config"
                     ) as mock_cfg2:
                         mock_cfg2.return_value = MagicMock(
-                            tiktok_access_token="tok", tiktok_open_id="oid"
+                            tiktok_access_token="tok",
+                            tiktok_open_id="oid",
+                            reconciliation_interval_hours=24,
                         )
                         with patch(
                             "tiktok_faceless.agents.monetization.TikTokAPIClient"
@@ -144,3 +152,26 @@ class TestBuildGraph:
                                                                     )
                                                                     assert result is not None
         _ = empty  # suppress unused variable
+
+
+class TestGraphRouting:
+    def test_route_after_orchestrator_clean_state_goes_to_script(self):
+        state = PipelineState(account_id="acc1")
+        assert _route_after_orchestrator(state) == "script"
+
+    def test_route_after_orchestrator_errors_still_goes_to_script(self):
+        """Errors alone do NOT halt pipeline — agent_health handles isolation."""
+        state = PipelineState(
+            account_id="acc1",
+            errors=[AgentError(agent="production", error_type="E", message="m")]
+        )
+        assert _route_after_orchestrator(state) == "script"
+
+    def test_route_after_orchestrator_published_routes_to_end(self):
+        state = PipelineState(account_id="acc1", published_video_id="vid123")
+        assert _route_after_orchestrator(state) == END
+
+    def test_route_after_orchestrator_no_production_routing_function(self):
+        """Production → publishing is a plain add_edge; no conditional routing function exists."""
+        import tiktok_faceless.graph as g
+        assert not hasattr(g, "_route_after_production")

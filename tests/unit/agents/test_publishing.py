@@ -232,3 +232,46 @@ class TestPhaseAwareDailyLimit:
         result = self._run_node(state)
         assert result == {"deferred": True}
         assert "errors" not in result
+
+
+class TestRecoverySuggestions:
+    def _post_with_error(self, exc: Exception) -> dict:
+        state = _state()
+        with patch(
+            "tiktok_faceless.agents.publishing.load_account_config",
+            return_value=_mock_config(),
+        ):
+            with patch(
+                "tiktok_faceless.agents.publishing.is_within_posting_window",
+                return_value=True,
+            ):
+                with patch("tiktok_faceless.agents.publishing.time") as mock_time:
+                    mock_time.time.return_value = 9999.0
+                    with patch(
+                        "tiktok_faceless.agents.publishing.get_session",
+                        return_value=_mock_session(),
+                    ):
+                        with patch(
+                            "tiktok_faceless.agents.publishing.TikTokAPIClient"
+                        ) as mock_tk_cls:
+                            mock_tk_cls.return_value.post_video.side_effect = exc
+                            return publishing_node(state)
+
+    def test_missing_video_has_recovery_suggestion(self) -> None:
+        state = _state(assembled_video_path=None)
+        result = publishing_node(state)
+        err = result["errors"][0]
+        assert err.recovery_suggestion is not None
+        assert err.recovery_suggestion != ""
+
+    def test_rate_limit_error_has_recovery_suggestion(self) -> None:
+        result = self._post_with_error(TikTokRateLimitError("429"))
+        err = result["errors"][0]
+        assert err.recovery_suggestion is not None
+        assert "rate limit" in err.recovery_suggestion.lower()
+
+    def test_auth_error_has_recovery_suggestion(self) -> None:
+        result = self._post_with_error(TikTokAuthError("401"))
+        err = result["errors"][0]
+        assert err.recovery_suggestion is not None
+        assert "auth" in err.recovery_suggestion.lower()

@@ -211,6 +211,19 @@ class TikTokAPIClient:
         return [str(c.get("text", "")) for c in comments if c.get("text")]
 
     @api_retry
+    def archive_video(self, account_id: str, video_id: str) -> None:
+        """
+        Permanently delete a video on TikTok (TikTok-side deletion, not soft-archive).
+        Non-recoverable — use only after kill-switch decision.
+        """
+        self._bucket.consume()
+        response = self._http.post(
+            "/v2/video/delete/",
+            json={"video_id": video_id, "open_id": self._open_id},
+        )
+        self._handle_response(response)
+
+    @api_retry
     def get_affiliate_orders(self, account_id: str) -> list[CommissionRecord]:
         """Fetch affiliate commission orders for the last 7 days."""
         from datetime import datetime, timedelta, timezone

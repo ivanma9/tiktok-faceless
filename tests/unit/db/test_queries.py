@@ -2,21 +2,26 @@
 
 import uuid
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from tiktok_faceless.db.models import Base, Product, Video, VideoMetric
+from tiktok_faceless.db.models import Base, Error, Product, Video, VideoMetric
 from tiktok_faceless.db.queries import (
     cache_product,
     flag_eliminated_niches,
+    get_active_errors,
+    get_archetype_scores,
     get_cached_products,
     get_commission_per_view,
     get_commission_totals,
     get_niche_scores,
+    write_agent_errors,
 )
 from tiktok_faceless.models.shop import AffiliateProduct
+from tiktok_faceless.state import AgentError
 
 
 @pytest.fixture
@@ -404,12 +409,72 @@ class TestGetCachedProductsExcludesEliminated:
         assert len(result) == 1
 
 
+class TestGetArchetypeScores:
+    """Tests for get_archetype_scores query."""
+
+    def _make_row(self, hook_archetype, avg_ret3, avg_ret15, avg_ctr, cnt):
+        row = MagicMock()
+        row.hook_archetype = hook_archetype
+        row.avg_ret3 = avg_ret3
+        row.avg_ret15 = avg_ret15
+        row.avg_ctr = avg_ctr
+        row.cnt = cnt
+        return row
+
+    def _mock_session(self, rows):
+        mock_sess = MagicMock()
+        (
+            mock_sess.query.return_value
+            .join.return_value
+            .filter.return_value
+            .group_by.return_value
+            .all.return_value
+        ) = rows
+        return mock_sess
+
+    def test_returns_empty_dict_when_no_rows(self):
+        sess = self._mock_session([])
+        result = get_archetype_scores(sess, account_id="acc1")
+        assert result == {}
+
+    def test_single_archetype_score_computed_correctly(self):
+        # score = 0.50 * 0.6 + 0.30 * 0.4 + 0.20 * 0.1 = 0.3 + 0.12 + 0.02 = 0.44
+        row = self._make_row("curiosity_gap", 0.6, 0.4, 0.1, 10)
+        sess = self._mock_session([row])
+        result = get_archetype_scores(sess, account_id="acc1")
+        assert "curiosity_gap" in result
+        score, count = result["curiosity_gap"]
+        assert abs(score - 0.44) < 1e-6
+        assert count == 10
+
+    def test_all_three_archetypes_returned(self):
+        rows = [
+            self._make_row("curiosity_gap", 0.5, 0.3, 0.05, 8),
+            self._make_row("social_proof", 0.6, 0.4, 0.08, 12),
+            self._make_row("controversy", 0.4, 0.2, 0.03, 6),
+        ]
+        sess = self._mock_session(rows)
+        result = get_archetype_scores(sess, account_id="acc1")
+        assert set(result.keys()) == {"curiosity_gap", "social_proof", "controversy"}
+
+    def test_null_avg_ctr_treated_as_zero(self):
+        row = self._make_row("social_proof", 0.5, 0.3, None, 5)
+        sess = self._mock_session([row])
+        result = get_archetype_scores(sess, account_id="acc1")
+        score, _ = result["social_proof"]
+        expected = 0.50 * 0.5 + 0.30 * 0.3 + 0.20 * 0.0
+        assert abs(score - expected) < 1e-6
+
+    def test_video_count_in_result(self):
+        row = self._make_row("controversy", 0.3, 0.2, 0.01, 7)
+        sess = self._mock_session([row])
+        result = get_archetype_scores(sess, account_id="acc1")
+        _, count = result["controversy"]
+        assert count == 7
+
+
 def test_cache_product_upsert_updates_niche(session: Session) -> None:
     """Upserting a product with a changed niche must update the niche field, not create a duplicate."""
-    from tiktok_faceless.db.queries import cache_product
-    from tiktok_faceless.models.shop import AffiliateProduct
-    from tiktok_faceless.db.models import Product
-
     product_v1 = AffiliateProduct(
         product_id="p1", product_name="Widget", product_url="https://u.com",
         commission_rate=0.1, sales_velocity_score=0.5, niche="health"
@@ -425,3 +490,101 @@ def test_cache_product_upsert_updates_niche(session: Session) -> None:
     assert len(rows) == 1, "Upsert must not create duplicate rows"
     assert rows[0].niche == "fitness", "Niche must be updated on upsert"
     assert rows[0].product_name == "Widget Updated"
+
+
+class TestWriteAgentErrors:
+    def _mock_session(self):
+        return MagicMock()
+
+    def test_writes_each_error_to_session(self):
+        errors = [
+            AgentError(agent="production", error_type="RenderError", message="fail"),
+            AgentError(agent="script", error_type="LLMError", message="timeout"),
+        ]
+        sess = self._mock_session()
+        write_agent_errors(sess, "acc1", errors)
+        assert sess.add.call_count == 2
+
+    def test_empty_errors_no_adds(self):
+        sess = self._mock_session()
+        write_agent_errors(sess, "acc1", [])
+        sess.add.assert_not_called()
+        sess.commit.assert_not_called()
+
+    def test_recovery_suggestion_set_on_error_row(self):
+        errors = [AgentError(
+            agent="monetization",
+            error_type="TikTokRateLimitError",
+            message="429",
+            recovery_suggestion="retry on next cycle",
+        )]
+        sess = self._mock_session()
+        write_agent_errors(sess, "acc1", errors)
+        added = sess.add.call_args[0][0]
+        assert added.recovery_suggestion == "retry on next cycle"
+
+    def test_maps_all_fields(self):
+        errors = [AgentError(
+            agent="publishing",
+            error_type="TikTokAuthError",
+            message="401 Unauthorized",
+            video_id="vid_xyz",
+            recovery_suggestion="refresh token",
+        )]
+        sess = self._mock_session()
+        write_agent_errors(sess, "acc1", errors)
+        added = sess.add.call_args[0][0]
+        assert added.agent == "publishing"
+        assert added.error_type == "TikTokAuthError"
+        assert added.message == "401 Unauthorized"
+        assert added.video_id == "vid_xyz"
+        assert added.account_id == "acc1"
+
+
+class TestGetActiveErrors:
+    def test_filters_by_account_and_unresolved(self):
+        sess = MagicMock()
+        sess.query.return_value.filter.return_value.order_by.return_value.all.return_value = []
+        result = get_active_errors(sess, "acc1")
+        assert result == []
+        sess.query.assert_called_once()
+
+    def test_returns_unresolved_rows_only(self, session: Session) -> None:
+        session.add(Error(
+            account_id="acc1",
+            agent="production",
+            error_type="RenderError",
+            message="render failed",
+            resolved_at=None,
+        ))
+        session.add(Error(
+            account_id="acc1",
+            agent="publishing",
+            error_type="TikTokAuthError",
+            message="auth failed",
+            resolved_at=datetime.utcnow(),
+        ))
+        session.commit()
+        result = get_active_errors(session, "acc1")
+        assert len(result) == 1
+        assert result[0].error_type == "RenderError"
+
+    def test_filters_by_account_id(self, session: Session) -> None:
+        session.add(Error(
+            account_id="acc1",
+            agent="script",
+            error_type="LLMError",
+            message="failed",
+            resolved_at=None,
+        ))
+        session.add(Error(
+            account_id="acc2",
+            agent="script",
+            error_type="LLMError",
+            message="failed",
+            resolved_at=None,
+        ))
+        session.commit()
+        result = get_active_errors(session, "acc1")
+        assert len(result) == 1
+        assert result[0].account_id == "acc1"

@@ -5,12 +5,16 @@ Implementation: Story 1.5 — Basic Script & Affiliate Link Generation
 Implementation: Story 2.4 — Full Script Generation with Hook Archetypes & Persona
 """
 
+import random
 from typing import Any
 
 from tiktok_faceless.clients import LLMError
 from tiktok_faceless.clients.llm import LLMClient
 from tiktok_faceless.config import load_account_config
+from tiktok_faceless.db.queries import get_archetype_scores
+from tiktok_faceless.db.session import get_session
 from tiktok_faceless.state import AgentError, PipelineState
+from tiktok_faceless.utils.recovery import get_recovery_suggestion
 
 THREE_HOOK_ARCHETYPES: list[str] = [
     "curiosity_gap",
@@ -20,6 +24,36 @@ THREE_HOOK_ARCHETYPES: list[str] = [
 
 # Keep for backwards compatibility
 VALID_HOOK_ARCHETYPES = THREE_HOOK_ARCHETYPES
+
+EXPLORATION_BOOST: float = 3.0
+
+
+def _select_hook_archetype(
+    archetypes: list[str],
+    scores: dict[str, tuple[float, int]],
+    min_sample_size: int,
+) -> str:
+    """Select hook archetype using weighted random selection.
+
+    Undersampled archetypes (video_count < min_sample_size) receive
+    EXPLORATION_BOOST multiplier to ensure sufficient data collection.
+    Falls back to uniform random if scores is empty.
+    """
+    if not scores:
+        return random.choice(archetypes)
+
+    weights: list[float] = []
+    for archetype in archetypes:
+        if archetype in scores:
+            composite_score, video_count = scores[archetype]
+            weight = max(0.01, composite_score)
+            if video_count < min_sample_size:
+                weight *= EXPLORATION_BOOST
+        else:
+            weight = EXPLORATION_BOOST
+        weights.append(weight)
+
+    return random.choices(archetypes, weights=weights, k=1)[0]
 
 
 def _build_script_prompt(
@@ -66,6 +100,7 @@ def script_node(state: PipelineState) -> dict[str, Any]:
                     agent="script",
                     error_type="MissingProduct",
                     message="selected_product is None — cannot generate script without a product",
+                    recovery_suggestion=get_recovery_suggestion("MissingProduct"),
                 )
             ]
         }
@@ -99,16 +134,29 @@ def script_node(state: PipelineState) -> dict[str, Any]:
                     agent="script",
                     error_type="LLMError",
                     message="All 3 archetypes failed — no script generated.",
-                    recovery_suggestion=(
-                        "LLM API error during script generation. Check API key and quota."
-                    ),
+                    recovery_suggestion=get_recovery_suggestion("LLMError"),
                 )
             ]
         }
 
-    selected = variants[0]
+    # Archetype performance-based selection
+    with get_session() as session:
+        archetype_scores = get_archetype_scores(session, account_id=state.account_id)
+
+    selected_archetype = _select_hook_archetype(
+        THREE_HOOK_ARCHETYPES,
+        archetype_scores,
+        config.archetype_min_sample_size,
+    )
+
+    # Find the variant matching selected archetype; fallback to first variant
+    selected_variant = next(
+        (v for v in variants if v["archetype"] == selected_archetype),
+        variants[0],
+    )
+
     return {
-        "current_script": selected["script"],
-        "hook_archetype": selected["archetype"],
+        "current_script": selected_variant["script"],
+        "hook_archetype": selected_variant["archetype"],
         "hook_variants": variants,
     }

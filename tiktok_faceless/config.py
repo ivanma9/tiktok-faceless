@@ -30,10 +30,20 @@ class AccountConfig(BaseModel):
     posting_window_end: int = Field(default=22, ge=0, le=23)
     tournament_duration_days: int = Field(default=14, ge=7)
     retention_kill_threshold: float = Field(default=0.25, ge=0.0, le=1.0)
+    ctr_kill_threshold: float = Field(default=0.01, ge=0.0, le=1.0)
+    minimum_view_threshold: int = Field(default=100, ge=1)
+    archetype_min_sample_size: int = Field(default=5, ge=1)
+    reconciliation_interval_hours: int = Field(default=24, ge=1)
+    commission_discrepancy_tolerance: float = Field(default=0.10, ge=0.0, le=1.0)
+    retry_max_attempts: int = Field(default=3, ge=1, le=10)
+    retry_backoff_multiplier: int = Field(default=4, ge=1)
+    retry_backoff_max_seconds: int = Field(default=30, ge=5)
     fyp_suppression_threshold: float = Field(default=0.40, ge=0.0, le=1.0)
+    suppression_window: int = Field(default=10, ge=1)
     commit_phase_min_videos: int = Field(default=5, ge=1)
     tournament_min_video_count: int = Field(default=3, ge=1)
     tournament_elimination_threshold_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    tournament_extension_days: int = Field(default=7, ge=1)
     tournament_posts_per_day: int = Field(default=5, ge=1, le=15)
     commit_posts_per_day: int = Field(default=3, ge=1, le=15)
     scale_posts_per_day: int = Field(default=10, ge=1, le=15)
@@ -43,6 +53,8 @@ class AccountConfig(BaseModel):
     persona_name: str = ""
     persona_catchphrase: str = ""
     persona_tone: str = "casual"
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
 
 def load_env() -> None:
@@ -67,4 +79,6 @@ def load_account_config(account_id: str) -> AccountConfig:
         anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
         creatomate_api_key=os.environ.get("CREATOMATE_API_KEY", ""),
         creatomate_template_id=os.environ.get("CREATOMATE_TEMPLATE_ID", ""),
+        telegram_bot_token=os.environ.get("TELEGRAM_BOT_TOKEN", ""),
+        telegram_chat_id=os.environ.get("TELEGRAM_CHAT_ID", ""),
     )

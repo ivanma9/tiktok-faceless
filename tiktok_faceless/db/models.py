@@ -26,6 +26,7 @@ class Account(Base):
     tiktok_access_token: Mapped[str] = mapped_column(String, nullable=False)
     tiktok_open_id: Mapped[str] = mapped_column(String, nullable=False)
     phase: Mapped[str] = mapped_column(String, nullable=False, default="warmup")
+    paused_agent_queues: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow

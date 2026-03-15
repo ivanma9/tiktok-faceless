@@ -14,6 +14,7 @@ from tiktok_faceless.config import AccountConfig, load_account_config
 from tiktok_faceless.db.models import Video
 from tiktok_faceless.db.session import get_session
 from tiktok_faceless.state import AgentError, PipelineState
+from tiktok_faceless.utils.recovery import get_recovery_suggestion
 from tiktok_faceless.utils.timing import is_within_posting_window
 
 _MIN_POST_INTERVAL_SECONDS: float = 3600.0
@@ -45,6 +46,7 @@ def publishing_node(state: PipelineState) -> dict[str, Any]:
                     agent="publishing",
                     error_type="MissingVideo",
                     message="assembled_video_path is None — nothing to publish",
+                    recovery_suggestion=get_recovery_suggestion("MissingVideo"),
                 )
             ]
         }
@@ -92,6 +94,7 @@ def publishing_node(state: PipelineState) -> dict[str, Any]:
                     agent="publishing",
                     error_type="TikTokRateLimitError",
                     message=str(e),
+                    recovery_suggestion=get_recovery_suggestion("TikTokRateLimitError"),
                 )
             ]
         }
@@ -102,6 +105,7 @@ def publishing_node(state: PipelineState) -> dict[str, Any]:
                     agent="publishing",
                     error_type="TikTokAuthError",
                     message=str(e),
+                    recovery_suggestion=get_recovery_suggestion("TikTokAuthError"),
                 )
             ]
         }
@@ -112,6 +116,7 @@ def publishing_node(state: PipelineState) -> dict[str, Any]:
                     agent="publishing",
                     error_type="TikTokAPIError",
                     message=str(e),
+                    recovery_suggestion=get_recovery_suggestion("TikTokAPIError"),
                 )
             ]
         }

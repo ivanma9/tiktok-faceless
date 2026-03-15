@@ -58,12 +58,15 @@ class PipelineState(BaseModel):
     assembled_video_path: str | None = None
     published_video_id: str | None = None
     videos_produced_today: int = 0
+    tournament_started_at: float = 0.0  # Unix timestamp when tournament phase began; 0.0 = not set
     last_post_timestamp: float = 0.0
     fyp_reach_rate: float = 1.0
     suppression_alert: bool = False
     niche_decay_alert: bool = False
     consecutive_decay_count: int = 0
+    consecutive_suppression_count: int = 0
     kill_video_ids: Annotated[list[str], add] = Field(default_factory=list)
     affiliate_commission_week: float = 0.0
+    last_reconciliation_at: float = 0.0
     agent_health: dict[str, bool] = Field(default_factory=dict)
     errors: Annotated[list[AgentError], add] = Field(default_factory=list)

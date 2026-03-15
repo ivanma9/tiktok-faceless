@@ -14,6 +14,7 @@ from tiktok_faceless.clients.creatomate import CreatomateClient
 from tiktok_faceless.clients.elevenlabs import ElevenLabsClient
 from tiktok_faceless.config import load_account_config
 from tiktok_faceless.state import AgentError, PipelineState
+from tiktok_faceless.utils.recovery import get_recovery_suggestion
 
 
 def production_node(state: PipelineState) -> dict[str, Any]:
@@ -30,6 +31,7 @@ def production_node(state: PipelineState) -> dict[str, Any]:
                     agent="production",
                     error_type="MissingScript",
                     message="current_script is None — cannot produce without a script",
+                    recovery_suggestion=get_recovery_suggestion("MissingScript"),
                 )
             ]
         }
@@ -55,6 +57,7 @@ def production_node(state: PipelineState) -> dict[str, Any]:
                     agent="production",
                     error_type="ElevenLabsError",
                     message=str(e),
+                    recovery_suggestion=get_recovery_suggestion("ElevenLabsError"),
                 )
             ]
         }
@@ -81,6 +84,7 @@ def production_node(state: PipelineState) -> dict[str, Any]:
                     agent="production",
                     error_type="RenderError",
                     message=str(e),
+                    recovery_suggestion=get_recovery_suggestion("RenderError"),
                 )
             ]
         }

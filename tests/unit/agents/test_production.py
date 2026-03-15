@@ -128,3 +128,49 @@ class TestProductionNodeErrors:
         assert "errors" in result
         assert result["errors"][0].error_type == "RenderError"
         assert "assembled_video_path" not in result
+
+
+class TestRecoverySuggestions:
+    def test_missing_script_has_recovery_suggestion(self) -> None:
+        state = PipelineState(account_id="acc1", current_script=None)
+        result = production_node(state)
+        err = result["errors"][0]
+        assert err.recovery_suggestion is not None
+        assert err.recovery_suggestion != ""
+
+    def test_elevenlabs_error_has_recovery_suggestion(self) -> None:
+        state = PipelineState(account_id="acc1", current_script="hello")
+        with patch(
+            "tiktok_faceless.agents.production.load_account_config",
+            return_value=_mock_config(),
+        ):
+            with patch("tiktok_faceless.agents.production.ElevenLabsClient") as mock_el_cls:
+                mock_el = MagicMock()
+                mock_el.generate_voiceover.side_effect = ElevenLabsError("quota exceeded")
+                mock_el_cls.return_value = mock_el
+                result = production_node(state)
+        err = result["errors"][0]
+        assert err.recovery_suggestion is not None
+        assert "ElevenLabs" in err.recovery_suggestion
+
+    def test_render_error_has_recovery_suggestion(self) -> None:
+        state = PipelineState(account_id="acc1", current_script="hello")
+        with patch(
+            "tiktok_faceless.agents.production.load_account_config",
+            return_value=_mock_config(),
+        ):
+            with patch("tiktok_faceless.agents.production.ElevenLabsClient") as mock_el_cls:
+                with patch(
+                    "tiktok_faceless.agents.production.CreatomateClient"
+                ) as mock_cr_cls:
+                    with patch("tiktok_faceless.agents.production.Path"):
+                        mock_el = MagicMock()
+                        mock_el.generate_voiceover.return_value = b"audio"
+                        mock_el_cls.return_value = mock_el
+                        mock_cr = MagicMock()
+                        mock_cr.submit_render.side_effect = RenderError("render failed")
+                        mock_cr_cls.return_value = mock_cr
+                        result = production_node(state)
+        err = result["errors"][0]
+        assert err.recovery_suggestion is not None
+        assert "Creatomate" in err.recovery_suggestion

@@ -16,6 +16,7 @@ from tiktok_faceless.agents.monetization import monetization_node
 from tiktok_faceless.agents.orchestrator import orchestrator_node
 from tiktok_faceless.agents.production import production_node
 from tiktok_faceless.agents.publishing import publishing_node
+from tiktok_faceless.agents.research import research_node
 from tiktok_faceless.agents.script import script_node
 from tiktok_faceless.state import PipelineState
 
@@ -28,7 +29,7 @@ def _route_after_orchestrator(state: PipelineState) -> str:
     """
     if state.published_video_id is not None:
         return END
-    return "script"
+    return "research"
 
 
 def build_graph() -> CompiledStateGraph:  # type: ignore[type-arg]
@@ -40,6 +41,7 @@ def build_graph() -> CompiledStateGraph:  # type: ignore[type-arg]
     graph: StateGraph = StateGraph(PipelineState)  # type: ignore[type-arg]
 
     graph.add_node("orchestrator", orchestrator_node)
+    graph.add_node("research", research_node)
     graph.add_node("script", script_node)
     graph.add_node("monetization", monetization_node)
     graph.add_node("production", production_node)
@@ -47,6 +49,7 @@ def build_graph() -> CompiledStateGraph:  # type: ignore[type-arg]
 
     graph.add_edge(START, "orchestrator")
     graph.add_conditional_edges("orchestrator", _route_after_orchestrator)
+    graph.add_edge("research", "script")
     graph.add_edge("script", "monetization")
     graph.add_edge("monetization", "production")
     graph.add_edge("production", "publishing")

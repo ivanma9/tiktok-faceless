@@ -6,6 +6,7 @@ Implementation: Story 1.4 — Video Production Agent
 """
 
 import base64
+import os
 import uuid
 from pathlib import Path
 from typing import Any
@@ -66,13 +67,13 @@ def production_node(state: PipelineState) -> dict[str, Any]:
     # ── Step 2: Submit render → poll → download ─────────────────────────────
     try:
         cr_client = CreatomateClient(api_key=config.creatomate_api_key)
-        audio_b64 = base64.b64encode(Path(voiceover_path).read_bytes()).decode()
-        voiceover_data_url = f"data:audio/mpeg;base64,{audio_b64}"
+        vps_host = os.environ.get("VPS_HOST", "5.78.141.19")
+        public_audio_url = f"http://{vps_host}/{voiceover_path}"
         job_id = cr_client.submit_render(
             template_id=config.creatomate_template_id,
             data={
                 "Text-1": state.current_script,
-                "Music": voiceover_data_url,
+                "Music": public_audio_url,
             },
         )
         output_url = cr_client.poll_status(job_id, timeout_seconds=600)

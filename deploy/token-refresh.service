@@ -1,0 +1,14 @@
+[Unit]
+Description=TikTok Access Token Refresh
+After=network.target
+
+[Service]
+Type=oneshot
+User=tiktok
+Group=tiktok
+WorkingDirectory=/home/tiktok/tiktok-faceless
+EnvironmentFile=/home/tiktok/tiktok-faceless/.env
+ExecStart=/home/tiktok/tiktok-faceless/.venv/bin/python tools/refresh_tiktok_token.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tiktok-token-refresh

@@ -1,0 +1,10 @@
+[Unit]
+Description=TikTok Token Refresh (every 23h)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=23h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

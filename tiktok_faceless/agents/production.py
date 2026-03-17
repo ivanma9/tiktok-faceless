@@ -5,6 +5,7 @@ Single public export: production_node(state) -> dict (state delta only).
 Implementation: Story 1.4 — Video Production Agent
 """
 
+import base64
 import uuid
 from pathlib import Path
 from typing import Any
@@ -65,11 +66,13 @@ def production_node(state: PipelineState) -> dict[str, Any]:
     # ── Step 2: Submit render → poll → download ─────────────────────────────
     try:
         cr_client = CreatomateClient(api_key=config.creatomate_api_key)
+        audio_b64 = base64.b64encode(Path(voiceover_path).read_bytes()).decode()
+        voiceover_data_url = f"data:audio/mpeg;base64,{audio_b64}"
         job_id = cr_client.submit_render(
             template_id=config.creatomate_template_id,
             data={
-                "voiceover_url": voiceover_path,
-                "hook_archetype": state.hook_archetype or "problem_solution",
+                "Text-1": state.current_script,
+                "Music": voiceover_data_url,
             },
         )
         output_url = cr_client.poll_status(job_id, timeout_seconds=600)

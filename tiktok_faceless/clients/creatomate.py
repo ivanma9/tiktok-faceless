@@ -38,7 +38,7 @@ class CreatomateClient:
             "/v1/renders",
             json={"template_id": template_id, "modifications": data},
         )
-        if response.status_code not in (200, 201):
+        if response.status_code not in (200, 201, 202):
             raise RenderError(f"Creatomate submit failed {response.status_code}: {response.text}")
         renders = response.json()
         return str(renders[0]["id"])

@@ -39,7 +39,7 @@ class ElevenLabsClient:
         cfg = config or ElevenLabsVoiceConfig(voice_id=voice_id)
         payload = {
             "text": text,
-            "model_id": "eleven_monolingual_v1",
+            "model_id": "eleven_turbo_v2_5",
             "voice_settings": {
                 "stability": cfg.stability,
                 "similarity_boost": cfg.similarity_boost,

@@ -351,6 +351,44 @@ def get_videos_posted_today(session: Session, account_id: str) -> int:
     )
 
 
+def get_pending_video(session: Session, account_id: str) -> Video | None:
+    """Return the most recently created rendered-but-unposted video, or None."""
+    return (
+        session.query(Video)
+        .filter(
+            Video.account_id == account_id,
+            Video.lifecycle_state == "rendered",
+            Video.assembled_video_path.isnot(None),
+        )
+        .order_by(Video.created_at.desc())
+        .first()
+    )
+
+
+def save_rendered_video(
+    session: Session,
+    account_id: str,
+    voiceover_path: str,
+    assembled_video_path: str,
+    script_text: str,
+    niche: str,
+) -> Video:
+    """Insert a new Video row with lifecycle_state='rendered'. Returns the row."""
+    video = Video(
+        id=str(uuid.uuid4()),
+        account_id=account_id,
+        niche=niche,
+        lifecycle_state="rendered",
+        script_text=script_text,
+        voiceover_path=voiceover_path,
+        assembled_video_path=assembled_video_path,
+        created_at=datetime.utcnow(),
+    )
+    session.add(video)
+    session.commit()
+    return video
+
+
 def get_account_phase(session: Session, account_id: str) -> str:
     """Return the current phase for the account; defaults to 'warmup' if not found."""
     account = session.query(Account).filter_by(account_id=account_id).first()

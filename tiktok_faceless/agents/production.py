@@ -15,6 +15,8 @@ from tiktok_faceless.clients import ElevenLabsError, RenderError
 from tiktok_faceless.clients.creatomate import CreatomateClient
 from tiktok_faceless.clients.elevenlabs import ElevenLabsClient
 from tiktok_faceless.config import load_account_config
+from tiktok_faceless.db.queries import get_pending_video, save_rendered_video
+from tiktok_faceless.db.session import get_session
 from tiktok_faceless.state import AgentError, PipelineState
 from tiktok_faceless.utils.recovery import get_recovery_suggestion
 
@@ -36,6 +38,15 @@ def production_node(state: PipelineState) -> dict[str, Any]:
                     recovery_suggestion=get_recovery_suggestion("MissingScript"),
                 )
             ]
+        }
+
+    # Reuse an existing rendered-but-unposted video if available (saves API quota)
+    with get_session() as session:
+        pending = get_pending_video(session, state.account_id)
+    if pending is not None:
+        return {
+            "voiceover_path": pending.voiceover_path or "",
+            "assembled_video_path": pending.assembled_video_path,
         }
 
     config = load_account_config(state.account_id)
@@ -92,6 +103,17 @@ def production_node(state: PipelineState) -> dict[str, Any]:
                 )
             ]
         }
+
+    niche = (state.selected_product or {}).get("niche", "unknown") if state.selected_product else "unknown"
+    with get_session() as session:
+        save_rendered_video(
+            session,
+            account_id=state.account_id,
+            voiceover_path=voiceover_path,
+            assembled_video_path=video_path,
+            script_text=state.current_script,
+            niche=niche,
+        )
 
     return {
         "voiceover_path": voiceover_path,

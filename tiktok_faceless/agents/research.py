@@ -78,11 +78,13 @@ def research_node(state: PipelineState) -> dict[str, Any]:
                 min_commission_rate=config.min_commission_rate,
                 min_sales_velocity=config.min_sales_velocity,
             )
-        except TikTokRateLimitError as e:
-            niche_errors.append((niche, f"rate_limited: {e}"))
-            continue
-        except TikTokAPIError as e:
+        except (TikTokRateLimitError, TikTokAPIError) as e:
             niche_errors.append((niche, f"api_error: {e}"))
+            # Fall back to stale cache rather than skipping the niche entirely
+            with get_session() as session:
+                stale = get_cached_products(session, account_id=state.account_id, niche=niche, ttl_hours=None)
+            if stale:
+                all_best.append(max(stale, key=lambda p: p.sales_velocity_score))
             continue
 
         if products:

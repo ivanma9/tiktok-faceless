@@ -121,20 +121,18 @@ def get_cached_products(
     session: Session,
     account_id: str,
     niche: str,
-    ttl_hours: int = _PRODUCT_CACHE_TTL_HOURS,
+    ttl_hours: int | None = _PRODUCT_CACHE_TTL_HOURS,
 ) -> list[AffiliateProduct]:
-    """Return cached products for account+niche still within TTL window."""
-    cutoff = datetime.utcnow() - timedelta(hours=ttl_hours)
-    rows = (
-        session.query(Product)
-        .filter(
-            Product.account_id == account_id,
-            Product.niche == niche,
-            Product.cached_at >= cutoff,
-            Product.eliminated == False,  # noqa: E712
-        )
-        .all()
+    """Return cached products for account+niche. Pass ttl_hours=None to skip TTL check."""
+    q = session.query(Product).filter(
+        Product.account_id == account_id,
+        Product.niche == niche,
+        Product.eliminated == False,  # noqa: E712
     )
+    if ttl_hours is not None:
+        cutoff = datetime.utcnow() - timedelta(hours=ttl_hours)
+        q = q.filter(Product.cached_at >= cutoff)
+    rows = q.all()
     return [
         AffiliateProduct(
             product_id=row.product_id,

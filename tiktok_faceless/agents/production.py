@@ -43,11 +43,11 @@ def production_node(state: PipelineState) -> dict[str, Any]:
     # Reuse an existing rendered-but-unposted video if available (saves API quota)
     with get_session() as session:
         pending = get_pending_video(session, state.account_id)
-    if pending is not None:
-        return {
-            "voiceover_path": pending.voiceover_path or "",
-            "assembled_video_path": pending.assembled_video_path,
-        }
+        if pending is not None:
+            return {
+                "voiceover_path": pending.voiceover_path or "",
+                "assembled_video_path": pending.assembled_video_path,
+            }
 
     config = load_account_config(state.account_id)
 

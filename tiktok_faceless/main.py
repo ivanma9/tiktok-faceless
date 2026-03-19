@@ -11,6 +11,7 @@ import argparse
 import logging
 import logging.config
 import sys
+import time
 
 from langgraph.graph.state import CompiledStateGraph
 
@@ -65,9 +66,10 @@ def run_pipeline_for_account(account_id: str, graph: CompiledStateGraph) -> None
         candidate_niches=config.niche_pool,
     )
     try:
+        thread_id = f"{account_id}-{int(time.time())}"
         graph.invoke(
             initial_state.model_dump(),
-            config={"configurable": {"thread_id": account_id}},
+            config={"configurable": {"thread_id": thread_id}},
         )
     except Exception as e:  # noqa: BLE001 — intentional catch-all: cross-account safety boundary
         logger.error("Pipeline failed for account %s: %s", account_id, e)

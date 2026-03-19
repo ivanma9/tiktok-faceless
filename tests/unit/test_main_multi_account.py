@@ -1,6 +1,5 @@
 """Tests for multi-account pipeline execution in tiktok_faceless.main."""
 
-import logging
 import sys
 from unittest.mock import MagicMock, call, patch
 
@@ -85,8 +84,7 @@ class TestRunAllAccounts:
         mock_run.assert_has_calls(expected_calls, any_order=False)
         # Verify completion log emitted after each account
         completion_calls = [
-            c for c in mock_logger.info.call_args_list
-            if "Completed pipeline run" in str(c)
+            c for c in mock_logger.info.call_args_list if "Completed pipeline run" in str(c)
         ]
         assert len(completion_calls) == 3
 
@@ -107,9 +105,7 @@ class TestRunAllAccounts:
         mock_run.assert_not_called()
         graph.invoke.assert_not_called()
         # Verify warning log emitted
-        mock_logger.warning.assert_called_once_with(
-            "No active accounts found — nothing to run"
-        )
+        mock_logger.warning.assert_called_once_with("No active accounts found — nothing to run")
 
 
 class TestRunPipelineDefaultCliPath:

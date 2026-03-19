@@ -8,7 +8,16 @@ Implementation: Story 1.2 — Core State & Database Models
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -79,9 +88,7 @@ class VideoMetric(Base):
     affiliate_clicks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     affiliate_orders: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    __table_args__ = (
-        Index("ix_video_metrics_video_id_recorded_at", "video_id", "recorded_at"),
-    )
+    __table_args__ = (Index("ix_video_metrics_video_id_recorded_at", "video_id", "recorded_at"),)
 
 
 class Product(Base):

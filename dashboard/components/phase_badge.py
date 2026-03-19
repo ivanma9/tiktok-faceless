@@ -12,10 +12,10 @@ _PHASE_LABELS: dict[str, str] = {
 }
 
 _PHASE_COLORS: dict[str, str] = {
-    "warmup": "#71717a",      # zinc-500
+    "warmup": "#71717a",  # zinc-500
     "tournament": "#d97706",  # amber-600
-    "commit": "#4338ca",      # indigo-700
-    "scale": "#059669",       # emerald-600
+    "commit": "#4338ca",  # indigo-700
+    "scale": "#059669",  # emerald-600
 }
 
 

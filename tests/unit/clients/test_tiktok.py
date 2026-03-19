@@ -101,11 +101,16 @@ class TestTikTokAPIClient:
 
     def test_post_video_returns_response(self) -> None:
         from unittest.mock import mock_open
+
         client = self._make_client()
         mock_init_response = MagicMock()
         mock_init_response.status_code = 200
         mock_init_response.json.return_value = {
-            "data": {"publish_id": "new_vid_456", "upload_url": "https://upload.example.com/v", "share_url": None}
+            "data": {
+                "publish_id": "new_vid_456",
+                "upload_url": "https://upload.example.com/v",
+                "share_url": None,
+            }
         }
         mock_upload_response = MagicMock()
         mock_upload_response.status_code = 200
@@ -128,6 +133,7 @@ class TestTikTokAPIClient:
     def test_post_video_reads_and_sends_file_bytes(self) -> None:
         """post_video must read the file and include bytes in the upload call."""
         from unittest.mock import mock_open
+
         client = self._make_client()
 
         fake_bytes = b"fake video content"
@@ -136,7 +142,11 @@ class TestTikTokAPIClient:
         init_response = MagicMock()
         init_response.status_code = 200
         init_response.json.return_value = {
-            "data": {"publish_id": "pub_123", "upload_url": "https://upload.example.com/video", "share_url": None}
+            "data": {
+                "publish_id": "pub_123",
+                "upload_url": "https://upload.example.com/video",
+                "share_url": None,
+            }
         }
 
         # Mock the upload response
@@ -146,7 +156,7 @@ class TestTikTokAPIClient:
         with (
             patch("os.path.getsize", return_value=len(fake_bytes)),
             patch("builtins.open", mock_open(read_data=fake_bytes)),
-            patch.object(client._http, "post", return_value=init_response) as mock_post,
+            patch.object(client._http, "post", return_value=init_response),
             patch.object(client._http, "put", return_value=upload_response) as mock_put,
         ):
             result = client.post_video(
@@ -158,8 +168,9 @@ class TestTikTokAPIClient:
         # Verify file bytes were sent in the PUT
         mock_put.assert_called_once()
         call_kwargs = mock_put.call_args
-        assert call_kwargs.kwargs.get("content") == fake_bytes or \
-               (call_kwargs.args and fake_bytes in call_kwargs.args)
+        assert call_kwargs.kwargs.get("content") == fake_bytes or (
+            call_kwargs.args and fake_bytes in call_kwargs.args
+        )
         assert result.video_id == "pub_123"
 
 
@@ -215,6 +226,7 @@ class TestGetValidatedProducts:
 
     def test_raises_rate_limit_error_on_429(self) -> None:
         from tiktok_faceless.clients import TikTokRateLimitError
+
         client = TikTokAPIClient(access_token="tok", open_id="oid")
         mock_response = MagicMock()
         mock_response.status_code = 429
@@ -232,6 +244,7 @@ class TestGetValidatedProducts:
 class TestGetAffiliateOrders:
     def test_returns_list_of_commission_records(self) -> None:
         from tiktok_faceless.models.shop import CommissionRecord
+
         client = TikTokAPIClient(access_token="tok", open_id="oid")
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -279,8 +292,8 @@ class TestGetAffiliateOrders:
             "data": {
                 "orders": [
                     {"order_id": "ord1", "product_id": "prod1", "commission_amount": 4.50},
-                    {"product_id": "prod2", "commission_amount": 2.00},   # missing order_id
-                    {"order_id": "ord3", "commission_amount": 1.00},       # missing product_id
+                    {"product_id": "prod2", "commission_amount": 2.00},  # missing order_id
+                    {"order_id": "ord3", "commission_amount": 1.00},  # missing product_id
                 ]
             }
         }
@@ -293,6 +306,7 @@ class TestGetAffiliateOrders:
     def test_sends_start_date_in_request(self) -> None:
         """get_affiliate_orders must include a start_date ~7 days ago in the request body."""
         from datetime import datetime, timedelta, timezone
+
         client = TikTokAPIClient(access_token="tok", open_id="oid")
         mock_response = MagicMock()
         mock_response.status_code = 200

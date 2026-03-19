@@ -87,8 +87,10 @@ class TikTokAPIClient:
         # TikTok Analytics API uses POST for queries despite being a read operation
         response = self._http.post(
             "/v2/video/query/",
-            params={"fields": "video_id,view_count,like_count,comment_count,share_count,"
-                              "average_time_watched,traffic_source_type"},
+            params={
+                "fields": "video_id,view_count,like_count,comment_count,share_count,"
+                "average_time_watched,traffic_source_type"
+            },
             json={"filters": {"video_ids": [video_id]}},
         )
         self._handle_response(response)
@@ -104,11 +106,10 @@ class TikTokAPIClient:
         )
 
     @api_retry
-    def post_video(
-        self, account_id: str, video_path: str, caption: str
-    ) -> TikTokPostResponse:
+    def post_video(self, account_id: str, video_path: str, caption: str) -> TikTokPostResponse:
         """Upload and publish a video using TikTok's two-step init+upload flow."""
         import os
+
         self._bucket.consume()
         file_size = os.path.getsize(video_path)
 
@@ -227,6 +228,7 @@ class TikTokAPIClient:
     def get_affiliate_orders(self, account_id: str) -> list[CommissionRecord]:
         """Fetch affiliate commission orders for the last 7 days."""
         from datetime import datetime, timedelta, timezone
+
         self._bucket.consume()
         start_date = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
         response = self._http.post(

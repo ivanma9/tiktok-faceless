@@ -37,8 +37,13 @@ class TestExceptionsAreExceptions:
 
     def test_all_raiseable(self) -> None:
         for exc_cls in [
-            TikTokRateLimitError, TikTokAuthError, TikTokAPIError,
-            ElevenLabsError, RenderError, FalError, LLMError,
+            TikTokRateLimitError,
+            TikTokAuthError,
+            TikTokAPIError,
+            ElevenLabsError,
+            RenderError,
+            FalError,
+            LLMError,
         ]:
             try:
                 raise exc_cls("test")

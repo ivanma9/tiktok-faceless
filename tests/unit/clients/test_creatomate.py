@@ -20,9 +20,7 @@ class TestCreatomateClient:
         mock_response.raise_for_status = MagicMock()
 
         with patch.object(client._http, "post", return_value=mock_response):
-            job_id = client.submit_render(
-                template_id="tmpl_1", data={"product_name": "Widget"}
-            )
+            job_id = client.submit_render(template_id="tmpl_1", data={"product_name": "Widget"})
 
         assert job_id == "job_abc123"
 
@@ -40,7 +38,11 @@ class TestCreatomateClient:
         client = self._make_client()
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.json.return_value = {"id": "job_abc", "status": "succeeded", "url": "https://cdn.example.com/out.mp4"}
+        mock_resp.json.return_value = {
+            "id": "job_abc",
+            "status": "succeeded",
+            "url": "https://cdn.example.com/out.mp4",
+        }
         mock_resp.raise_for_status = MagicMock()
 
         with patch.object(client._http, "get", return_value=mock_resp):

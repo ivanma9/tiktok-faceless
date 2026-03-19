@@ -9,9 +9,7 @@ from sqlalchemy.orm import Session
 from tiktok_faceless.db.models import VideoMetric
 
 
-def compute_fyp_reach_rate(
-    session: Session, account_id: str, window: int = 10
-) -> float:
+def compute_fyp_reach_rate(session: Session, account_id: str, window: int = 10) -> float:
     """
     Compute rolling FYP reach rate as average fyp_reach_pct across last N VideoMetric rows.
 

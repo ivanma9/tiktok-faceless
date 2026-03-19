@@ -1,7 +1,6 @@
 """Tests for provision_account DB query helper in tiktok_faceless/db/queries.py."""
 
 import uuid
-from datetime import datetime
 
 import pytest
 from sqlalchemy import create_engine

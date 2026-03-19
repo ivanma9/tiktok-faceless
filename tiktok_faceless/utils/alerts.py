@@ -35,9 +35,9 @@ def send_phase_alert(
         if committed_niche:
             text += f" Winning niche: {committed_niche}."
         if timestamp is not None:
-            dt = datetime.datetime.fromtimestamp(
-                timestamp, tz=datetime.timezone.utc
-            ).strftime("%Y-%m-%d %H:%M UTC")
+            dt = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).strftime(
+                "%Y-%m-%d %H:%M UTC"
+            )
             text += f"\nTime: {dt}"
         httpx.post(
             f"https://api.telegram.org/bot{bot_token}/sendMessage",
@@ -69,9 +69,9 @@ def send_suppression_alert(
             f"FYP reach {fyp_rate:.1%} below threshold {threshold:.1%}."
         )
         if timestamp is not None:
-            dt = datetime.datetime.fromtimestamp(
-                timestamp, tz=datetime.timezone.utc
-            ).strftime("%Y-%m-%d %H:%M UTC")
+            dt = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).strftime(
+                "%Y-%m-%d %H:%M UTC"
+            )
             text += f"\nTime: {dt}"
         httpx.post(
             f"https://api.telegram.org/bot{bot_token}/sendMessage",

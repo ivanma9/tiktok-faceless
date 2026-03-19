@@ -197,17 +197,26 @@ class TestTournamentMode:
 
     def test_picks_highest_score_across_niches(self) -> None:
         low = AffiliateProduct(
-            product_id="p_low", product_name="Low", product_url="u",
-            commission_rate=0.1, sales_velocity_score=0.4, niche="fitness"
+            product_id="p_low",
+            product_name="Low",
+            product_url="u",
+            commission_rate=0.1,
+            sales_velocity_score=0.4,
+            niche="fitness",
         )
         high = AffiliateProduct(
-            product_id="p_high", product_name="High", product_url="u",
-            commission_rate=0.2, sales_velocity_score=0.9, niche="health"
+            product_id="p_high",
+            product_name="High",
+            product_url="u",
+            commission_rate=0.2,
+            sales_velocity_score=0.9,
+            niche="health",
         )
         state = PipelineState(
             account_id="acc1", phase="tournament", candidate_niches=["health", "fitness"]
         )
         call_count = 0
+
         def side_effect(**kwargs: object) -> list[AffiliateProduct]:
             nonlocal call_count
             call_count += 1
@@ -256,9 +265,7 @@ class TestTournamentMode:
         assert "health" in call_niches
 
     def test_empty_candidate_niches_returns_error(self) -> None:
-        state = PipelineState(
-            account_id="acc1", phase="tournament", candidate_niches=[]
-        )
+        state = PipelineState(account_id="acc1", phase="tournament", candidate_niches=[])
         with patch(f"{_MOD}.load_account_config", return_value=_mock_config()):
             result = research_node(state)
         assert "errors" in result
@@ -267,17 +274,24 @@ class TestTournamentMode:
     def test_live_api_path_picks_highest_score_not_first(self) -> None:
         """When API returns unsorted products, live path must pick highest score."""
         import pytest
+
         low = AffiliateProduct(
-            product_id="p_low", product_name="Low", product_url="u",
-            commission_rate=0.1, sales_velocity_score=0.2, niche="health"
+            product_id="p_low",
+            product_name="Low",
+            product_url="u",
+            commission_rate=0.1,
+            sales_velocity_score=0.2,
+            niche="health",
         )
         high = AffiliateProduct(
-            product_id="p_high", product_name="High", product_url="u",
-            commission_rate=0.2, sales_velocity_score=0.9, niche="health"
+            product_id="p_high",
+            product_name="High",
+            product_url="u",
+            commission_rate=0.2,
+            sales_velocity_score=0.9,
+            niche="health",
         )
-        state = PipelineState(
-            account_id="acc1", phase="tournament", candidate_niches=["health"]
-        )
+        state = PipelineState(account_id="acc1", phase="tournament", candidate_niches=["health"])
         with (
             patch(f"{_MOD}.load_account_config", return_value=_mock_config()),
             patch(f"{_MOD}.TikTokAPIClient") as mock_client_cls,
@@ -296,10 +310,12 @@ class TestTournamentMode:
 
     def test_one_niche_failure_does_not_block_others(self) -> None:
         from tiktok_faceless.clients import TikTokAPIError
+
         state = PipelineState(
             account_id="acc1", phase="tournament", candidate_niches=["health", "fitness"]
         )
         call_count = 0
+
         def side_effect(**kwargs: object) -> list[AffiliateProduct]:
             nonlocal call_count
             call_count += 1
@@ -414,7 +430,9 @@ class TestDecayDetection:
             patch("tiktok_faceless.agents.research.get_session", return_value=_mock_session_ctx()),
             patch("tiktok_faceless.agents.research.get_cached_products", return_value=[_PRODUCT]),
             patch("tiktok_faceless.agents.research.cache_product"),
-            patch("tiktok_faceless.agents.research.get_commission_per_view", return_value=0.01),  # above threshold
+            patch(
+                "tiktok_faceless.agents.research.get_commission_per_view", return_value=0.01
+            ),  # above threshold
         ):
             mock_client = MagicMock()
             mock_client.get_video_comments.return_value = []
@@ -451,6 +469,7 @@ class TestDecayDetection:
     def test_rate_limit_errors_surfaced_in_no_products_message(self) -> None:
         """When all niches are rate-limited, error message must mention rate limiting."""
         from tiktok_faceless.clients import TikTokRateLimitError
+
         state = PipelineState(
             account_id="acc1", phase="tournament", candidate_niches=["health", "fitness"]
         )

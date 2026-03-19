@@ -82,7 +82,9 @@ def research_node(state: PipelineState) -> dict[str, Any]:
             niche_errors.append((niche, f"api_error: {e}"))
             # Fall back to stale cache rather than skipping the niche entirely
             with get_session() as session:
-                stale = get_cached_products(session, account_id=state.account_id, niche=niche, ttl_hours=None)
+                stale = get_cached_products(
+                    session, account_id=state.account_id, niche=niche, ttl_hours=None
+                )
             if stale:
                 all_best.append(max(stale, key=lambda p: p.sales_velocity_score))
             continue
@@ -105,7 +107,8 @@ def research_node(state: PipelineState) -> dict[str, Any]:
                     agent="research",
                     error_type="NoValidatedProducts",
                     message=(
-                        f"No products in niches {niches} met the validation thresholds.{error_detail}"
+                        f"No products in niches {niches} met the validation thresholds."  # noqa: E501
+                        f"{error_detail}"
                     ),
                     recovery_suggestion="Try different niches or lower thresholds.",
                 )

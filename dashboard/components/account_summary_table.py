@@ -1,7 +1,5 @@
 """Account summary table component — Story 7.3."""
 
-from datetime import timedelta
-
 import streamlit as st
 
 _PHASE_COLORS = {

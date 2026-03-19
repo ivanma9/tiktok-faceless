@@ -13,8 +13,9 @@ from dashboard.components.milestone_banner import (
 from tiktok_faceless.db.models import AgentDecision
 
 
-def _make_decision(from_value="warmup", to_value="tournament", rationale="Winner detected",
-                   decision_id=1):
+def _make_decision(
+    from_value="warmup", to_value="tournament", rationale="Winner detected", decision_id=1
+):
     d = MagicMock(spec=AgentDecision)
     d.id = decision_id
     d.from_value = from_value
@@ -60,8 +61,9 @@ def test_render_milestone_1k_banner_skipped_when_dismissed():
 
 
 def test_render_phase_transition_banner_shows_from_to_values():
-    decision = _make_decision(from_value="warmup", to_value="tournament",
-                              rationale="Winner detected")
+    decision = _make_decision(
+        from_value="warmup", to_value="tournament", rationale="Winner detected"
+    )
     with patch("dashboard.components.milestone_banner.st") as mock_st:
         mock_st.session_state = {}
         mock_st.button.return_value = False

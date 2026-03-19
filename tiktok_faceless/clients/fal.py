@@ -20,9 +20,7 @@ class FalClient:
         self._api_key = api_key
         os.environ["FAL_KEY"] = api_key
 
-    def generate_video(
-        self, prompt: str, image_url: str | None = None
-    ) -> str:
+    def generate_video(self, prompt: str, image_url: str | None = None) -> str:
         """
         Submit a Kling video generation job and return the output video URL.
 

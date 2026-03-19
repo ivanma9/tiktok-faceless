@@ -219,9 +219,9 @@ def get_archetype_scores(
             Video.hook_archetype,
             func.avg(VideoMetric.retention_3s).label("avg_ret3"),
             func.avg(VideoMetric.retention_15s).label("avg_ret15"),
-            func.avg(
-                VideoMetric.affiliate_clicks / func.nullif(VideoMetric.view_count, 0)
-            ).label("avg_ctr"),
+            func.avg(VideoMetric.affiliate_clicks / func.nullif(VideoMetric.view_count, 0)).label(
+                "avg_ctr"
+            ),
             func.count().label("cnt"),
         )
         .join(Video, VideoMetric.video_id == Video.tiktok_video_id)
@@ -632,9 +632,7 @@ def get_kpi_freshness(session: Session, account_id: str) -> datetime | None:
     return result
 
 
-def get_kpi_prior_retention_3s(
-    session: Session, account_id: str, days: int = 7
-) -> float | None:
+def get_kpi_prior_retention_3s(session: Session, account_id: str, days: int = 7) -> float | None:
     """Return avg retention_3s for the prior window (days+1 to 2*days ago)."""
     now = datetime.utcnow()
     current_cutoff = now - timedelta(days=days)
@@ -651,9 +649,7 @@ def get_kpi_prior_retention_3s(
     return float(result) if result is not None else None
 
 
-def get_kpi_prior_retention_15s(
-    session: Session, account_id: str, days: int = 7
-) -> float | None:
+def get_kpi_prior_retention_15s(session: Session, account_id: str, days: int = 7) -> float | None:
     """Return avg retention_15s for the prior window (days+1 to 2*days ago)."""
     now = datetime.utcnow()
     current_cutoff = now - timedelta(days=days)
@@ -670,9 +666,7 @@ def get_kpi_prior_retention_15s(
     return float(result) if result is not None else None
 
 
-def get_kpi_prior_affiliate_ctr(
-    session: Session, account_id: str, days: int = 7
-) -> float | None:
+def get_kpi_prior_affiliate_ctr(session: Session, account_id: str, days: int = 7) -> float | None:
     """Return affiliate CTR for the prior window (days+1 to 2*days ago)."""
     now = datetime.utcnow()
     current_cutoff = now - timedelta(days=days)
@@ -694,9 +688,7 @@ def get_kpi_prior_affiliate_ctr(
     return float(row.clicks) / max(float(row.views or 0), 1.0)
 
 
-def get_kpi_prior_fyp_reach_rate(
-    session: Session, account_id: str, days: int = 7
-) -> float | None:
+def get_kpi_prior_fyp_reach_rate(session: Session, account_id: str, days: int = 7) -> float | None:
     """Return avg fyp_reach_pct for the prior window (days+1 to 2*days ago)."""
     now = datetime.utcnow()
     current_cutoff = now - timedelta(days=days)
@@ -748,9 +740,9 @@ def get_top_videos_by_commission(
             func.avg(VideoMetric.retention_3s).label("avg_retention_3s"),
             func.sum(VideoMetric.affiliate_clicks).label("total_clicks"),
             func.sum(VideoMetric.view_count).label("total_views"),
-            func.sum(
-                VideoMetric.affiliate_orders * Product.commission_rate
-            ).label("commission_earned"),
+            func.sum(VideoMetric.affiliate_orders * Product.commission_rate).label(
+                "commission_earned"
+            ),
         )
         .join(Video, VideoMetric.video_id == Video.tiktok_video_id)
         .outerjoin(
@@ -842,15 +834,17 @@ def get_tournament_niche_table(
         else:
             status = "Trailing"
 
-        result.append({
-            "rank": rank,
-            "niche": row.niche,
-            "video_count": int(row.video_count or 0),
-            "avg_ctr_pct": aff_ctr,
-            "avg_retention_3s_pct": float(row.avg_retention_3s or 0.0),
-            "total_revenue": float(row.total_orders or 0),
-            "status": status,
-        })
+        result.append(
+            {
+                "rank": rank,
+                "niche": row.niche,
+                "video_count": int(row.video_count or 0),
+                "avg_ctr_pct": aff_ctr,
+                "avg_retention_3s_pct": float(row.avg_retention_3s or 0.0),
+                "total_revenue": float(row.total_orders or 0),
+                "status": status,
+            }
+        )
     return result
 
 
@@ -936,7 +930,7 @@ def get_active_accounts(session: Session) -> list[Account]:
 
 
 def provision_account(session: Session, account_id: str) -> bool:
-    """Insert a new Account row with phase='warmup'. Idempotent — returns False if already exists."""
+    """Insert a new Account row with phase='warmup'. Idempotent — returns False if already exists."""  # noqa: E501
     existing = session.query(Account).filter_by(account_id=account_id).first()
     if existing is not None:
         _queries_logger.warning("Account %s already exists — skipping provision", account_id)
@@ -1004,9 +998,7 @@ def get_account_summary_row(session: Session, account_id: str) -> dict:
     now = datetime.utcnow()
     today_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     revenue_result = (
-        session.query(
-            func.sum(VideoMetric.affiliate_orders * Product.commission_rate).label("rev")
-        )
+        session.query(func.sum(VideoMetric.affiliate_orders * Product.commission_rate).label("rev"))
         .join(Video, VideoMetric.video_id == Video.tiktok_video_id)
         .join(
             Product,

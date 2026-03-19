@@ -18,7 +18,6 @@ _ERROR_TYPE_LABELS: dict[str, str] = {
 }
 
 
-
 def _plain_message(error) -> str:
     """Return the plain-English version of error.message (already human-readable from agents)."""
     return error.message or error.error_type

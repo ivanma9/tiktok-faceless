@@ -131,12 +131,14 @@ def analytics_node(state: PipelineState) -> dict[str, Any]:
                         f"48h kill switch: retention_3s={latest.retention_3s:.3f}, "
                         f"aff_ctr={aff_ctr:.4f}, view_count={latest.view_count}"
                     ),
-                    supporting_data=json.dumps({
-                        "video_id": video.tiktok_video_id,
-                        "view_count": latest.view_count,
-                        "retention_3s": round(latest.retention_3s, 4),
-                        "aff_ctr": round(aff_ctr, 4),
-                    }),
+                    supporting_data=json.dumps(
+                        {
+                            "video_id": video.tiktok_video_id,
+                            "view_count": latest.view_count,
+                            "retention_3s": round(latest.retention_3s, 4),
+                            "aff_ctr": round(aff_ctr, 4),
+                        }
+                    ),
                 )
             )
             video.lifecycle_state = new_lifecycle
@@ -169,11 +171,13 @@ def analytics_node(state: PipelineState) -> dict[str, Any]:
                             f"threshold {config.fyp_suppression_threshold:.3f} "
                             f"for {new_count} consecutive intervals."
                         ),
-                        supporting_data=json.dumps({
-                            "fyp_reach_rate": round(current_fyp_rate, 4),
-                            "threshold": config.fyp_suppression_threshold,
-                            "consecutive_suppression_count": new_count,
-                        }),
+                        supporting_data=json.dumps(
+                            {
+                                "fyp_reach_rate": round(current_fyp_rate, 4),
+                                "threshold": config.fyp_suppression_threshold,
+                                "consecutive_suppression_count": new_count,
+                            }
+                        ),
                     )
                 )
         else:

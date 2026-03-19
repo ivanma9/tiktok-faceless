@@ -28,8 +28,9 @@ def session():
     sess.close()
 
 
-def _make_product(session, account_id: str = _ACCOUNT, product_id: str = "prod1",
-                  commission_rate: float = 0.10) -> Product:
+def _make_product(
+    session, account_id: str = _ACCOUNT, product_id: str = "prod1", commission_rate: float = 0.10
+) -> Product:
     p = Product(
         id=str(uuid.uuid4()),
         account_id=account_id,
@@ -44,8 +45,9 @@ def _make_product(session, account_id: str = _ACCOUNT, product_id: str = "prod1"
     return p
 
 
-def _make_video(session, account_id: str = _ACCOUNT, tiktok_video_id: str = "vid1",
-                product_id: str = "prod1") -> Video:
+def _make_video(
+    session, account_id: str = _ACCOUNT, tiktok_video_id: str = "vid1", product_id: str = "prod1"
+) -> Video:
     v = Video(
         id=str(uuid.uuid4()),
         account_id=account_id,
@@ -58,9 +60,13 @@ def _make_video(session, account_id: str = _ACCOUNT, tiktok_video_id: str = "vid
     return v
 
 
-def _make_metric(session, account_id: str = _ACCOUNT, video_id: str = "vid1",
-                 affiliate_orders: int = 5,
-                 recorded_at: datetime | None = None) -> VideoMetric:
+def _make_metric(
+    session,
+    account_id: str = _ACCOUNT,
+    video_id: str = "vid1",
+    affiliate_orders: int = 5,
+    recorded_at: datetime | None = None,
+) -> VideoMetric:
     m = VideoMetric(
         account_id=account_id,
         video_id=video_id,
@@ -72,8 +78,12 @@ def _make_metric(session, account_id: str = _ACCOUNT, video_id: str = "vid1",
     return m
 
 
-def _make_decision(session, account_id: str = _ACCOUNT, decision_type: str = "phase_transition",
-                   created_at: datetime | None = None) -> AgentDecision:
+def _make_decision(
+    session,
+    account_id: str = _ACCOUNT,
+    decision_type: str = "phase_transition",
+    created_at: datetime | None = None,
+) -> AgentDecision:
     d = AgentDecision(
         account_id=account_id,
         agent="orchestrator",
@@ -160,8 +170,9 @@ def test_get_monthly_revenue_scoped_to_account_id(session):
     now = datetime.utcnow()
     _make_product(session, account_id=_ACCOUNT, product_id="prod1", commission_rate=0.10)
     _make_video(session, account_id=_ACCOUNT, tiktok_video_id="vid1", product_id="prod1")
-    _make_metric(session, account_id=_ACCOUNT, video_id="vid1", affiliate_orders=10,
-                 recorded_at=now)
+    _make_metric(
+        session, account_id=_ACCOUNT, video_id="vid1", affiliate_orders=10, recorded_at=now
+    )
 
     result = get_monthly_revenue(session, _OTHER)
     assert result == 0.0

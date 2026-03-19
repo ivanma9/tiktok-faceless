@@ -124,8 +124,7 @@ def orchestrator_node(state: PipelineState) -> dict[str, Any]:
                     session.commit()
                     return {
                         "tournament_started_at": (
-                            state.tournament_started_at
-                            + config.tournament_extension_days * 86400.0
+                            state.tournament_started_at + config.tournament_extension_days * 86400.0
                         )
                     }
 
@@ -134,9 +133,7 @@ def orchestrator_node(state: PipelineState) -> dict[str, Any]:
         config = load_account_config(state.account_id)
         decayed_niche = state.committed_niche
         with get_session() as session:
-            cpv = get_commission_per_view(
-                session, account_id=state.account_id, niche=decayed_niche
-            )
+            cpv = get_commission_per_view(session, account_id=state.account_id, niche=decayed_niche)
             session.add(
                 AgentDecision(
                     account_id=state.account_id,
@@ -148,11 +145,13 @@ def orchestrator_node(state: PipelineState) -> dict[str, Any]:
                         f"Niche decay confirmed for '{decayed_niche}' "
                         f"(commission_per_view={cpv:.6f}). Re-triggering tournament."
                     ),
-                    supporting_data=json.dumps({
-                        "decayed_niche": decayed_niche,
-                        "commission_per_view": round(cpv, 6),
-                        "consecutive_decay_count": state.consecutive_decay_count,
-                    }),
+                    supporting_data=json.dumps(
+                        {
+                            "decayed_niche": decayed_niche,
+                            "commission_per_view": round(cpv, 6),
+                            "consecutive_decay_count": state.consecutive_decay_count,
+                        }
+                    ),
                 )
             )
             session.commit()

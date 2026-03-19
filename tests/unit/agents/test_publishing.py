@@ -27,11 +27,8 @@ def _mock_session(affiliate_link: str | None = "https://shop.tiktok.com/aff/123"
     mock_video.affiliate_link = affiliate_link
     mock_video.lifecycle_state = "queued"
     mock_session_obj = MagicMock()
-    chain = (
-        mock_session_obj.query.return_value
-        .filter_by.return_value
-        .filter.return_value
-        .order_by.return_value
+    chain = (  # noqa: E501
+        mock_session_obj.query.return_value.filter_by.return_value.filter.return_value.order_by.return_value
     )
     chain.first.return_value = mock_video
     mock_ctx = MagicMock()

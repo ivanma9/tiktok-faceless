@@ -25,6 +25,7 @@ class TestInitDb:
         engine = get_engine("sqlite:///:memory:")
         init_db(engine)
         from sqlalchemy import inspect as sa_inspect
+
         inspector = sa_inspect(engine)
         tables = set(inspector.get_table_names())
         expected = {"accounts", "videos", "video_metrics", "products", "agent_decisions", "errors"}

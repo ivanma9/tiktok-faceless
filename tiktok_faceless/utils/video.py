@@ -23,9 +23,13 @@ def strip_metadata(video_path: str) -> str:
     try:
         subprocess.run(
             [
-                "ffmpeg", "-i", video_path,
-                "-map_metadata", "-1",
-                "-c", "copy",
+                "ffmpeg",
+                "-i",
+                video_path,
+                "-map_metadata",
+                "-1",
+                "-c",
+                "copy",
                 tmp_path,
                 "-y",
             ],
@@ -50,9 +54,12 @@ def get_video_duration(video_path: str) -> float:
         result = subprocess.run(
             [
                 "ffprobe",
-                "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
                 video_path,
             ],
             capture_output=True,

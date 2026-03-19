@@ -107,12 +107,25 @@ class TestPipelineState:
         """All 19 fields from architecture spec must be present."""
         state = PipelineState(account_id="acc1")
         required_fields = [
-            "account_id", "phase", "candidate_niches", "committed_niche",
-            "selected_product", "product_validated", "current_script",
-            "hook_archetype", "voiceover_path", "assembled_video_path",
-            "published_video_id", "videos_produced_today", "last_post_timestamp",
-            "fyp_reach_rate", "suppression_alert", "kill_video_ids",
-            "affiliate_commission_week", "agent_health", "errors",
+            "account_id",
+            "phase",
+            "candidate_niches",
+            "committed_niche",
+            "selected_product",
+            "product_validated",
+            "current_script",
+            "hook_archetype",
+            "voiceover_path",
+            "assembled_video_path",
+            "published_video_id",
+            "videos_produced_today",
+            "last_post_timestamp",
+            "fyp_reach_rate",
+            "suppression_alert",
+            "kill_video_ids",
+            "affiliate_commission_week",
+            "agent_health",
+            "errors",
         ]
         for field in required_fields:
             assert hasattr(state, field), f"Missing field: {field}"

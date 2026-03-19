@@ -13,8 +13,7 @@ def render_suppression_alert(suppression_error) -> None:
         return
 
     auto_action = (
-        suppression_error.recovery_suggestion
-        or "Pipeline has paused new posts automatically"
+        suppression_error.recovery_suggestion or "Pipeline has paused new posts automatically"
     )
     time_label = humanize_timedelta(datetime.utcnow() - suppression_error.timestamp)
 

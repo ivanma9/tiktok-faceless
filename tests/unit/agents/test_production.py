@@ -43,12 +43,8 @@ class TestProductionNodeSuccess:
             return_value=_mock_config(),
         ):
             with patch("tiktok_faceless.agents.production.ElevenLabsClient") as mock_el_cls:
-                with patch(
-                    "tiktok_faceless.agents.production.CreatomateClient"
-                ) as mock_cr_cls:
-                    with patch(
-                        "tiktok_faceless.agents.production.Path"
-                    ) as mock_path_cls:
+                with patch("tiktok_faceless.agents.production.CreatomateClient") as mock_cr_cls:
+                    with patch("tiktok_faceless.agents.production.Path") as mock_path_cls:
                         # Setup ElevenLabs mock
                         mock_el = MagicMock()
                         mock_el.generate_voiceover.return_value = b"audio_data"
@@ -64,9 +60,7 @@ class TestProductionNodeSuccess:
                         # Setup Path mock
                         mock_path_instance = MagicMock()
                         mock_path_cls.return_value = mock_path_instance
-                        mock_path_instance.__truediv__ = MagicMock(
-                            return_value=mock_path_instance
-                        )
+                        mock_path_instance.__truediv__ = MagicMock(return_value=mock_path_instance)
                         mock_path_instance.__str__ = MagicMock(
                             return_value="/output/acc1/audio/abc.mp3"
                         )
@@ -86,9 +80,7 @@ class TestProductionNodeErrors:
             "tiktok_faceless.agents.production.load_account_config",
             return_value=_mock_config(),
         ):
-            with patch(
-                "tiktok_faceless.agents.production.ElevenLabsClient"
-            ) as mock_el_cls:
+            with patch("tiktok_faceless.agents.production.ElevenLabsClient") as mock_el_cls:
                 mock_el = MagicMock()
                 mock_el.generate_voiceover.side_effect = ElevenLabsError("API down")
                 mock_el_cls.return_value = mock_el
@@ -108,12 +100,8 @@ class TestProductionNodeErrors:
             "tiktok_faceless.agents.production.load_account_config",
             return_value=_mock_config(),
         ):
-            with patch(
-                "tiktok_faceless.agents.production.ElevenLabsClient"
-            ) as mock_el_cls:
-                with patch(
-                    "tiktok_faceless.agents.production.CreatomateClient"
-                ) as mock_cr_cls:
+            with patch("tiktok_faceless.agents.production.ElevenLabsClient") as mock_el_cls:
+                with patch("tiktok_faceless.agents.production.CreatomateClient") as mock_cr_cls:
                     with patch("tiktok_faceless.agents.production.Path"):
                         mock_el = MagicMock()
                         mock_el.generate_voiceover.return_value = b"audio"
@@ -160,9 +148,7 @@ class TestRecoverySuggestions:
             return_value=_mock_config(),
         ):
             with patch("tiktok_faceless.agents.production.ElevenLabsClient") as mock_el_cls:
-                with patch(
-                    "tiktok_faceless.agents.production.CreatomateClient"
-                ) as mock_cr_cls:
+                with patch("tiktok_faceless.agents.production.CreatomateClient") as mock_cr_cls:
                     with patch("tiktok_faceless.agents.production.Path"):
                         mock_el = MagicMock()
                         mock_el.generate_voiceover.return_value = b"audio"

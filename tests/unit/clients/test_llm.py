@@ -53,6 +53,7 @@ class TestLLMClient:
 def test_generate_script_retries_on_api_status_error() -> None:
     """generate_script must retry on transient anthropic.APIStatusError."""
     import anthropic
+
     from tiktok_faceless.clients.llm import LLMClient
 
     client = LLMClient(api_key="test")

@@ -20,11 +20,7 @@ def _mock_session_with_rows(fyp_values: list[float]) -> MagicMock:
         rows.append(row)
     mock_sess = MagicMock()
     (
-        mock_sess.query.return_value
-        .filter_by.return_value
-        .order_by.return_value
-        .limit.return_value
-        .all.return_value
+        mock_sess.query.return_value.filter_by.return_value.order_by.return_value.limit.return_value.all.return_value
     ) = rows
     return mock_sess
 

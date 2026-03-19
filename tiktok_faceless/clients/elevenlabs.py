@@ -48,9 +48,7 @@ class ElevenLabsClient:
         }
         response = self._http.post(f"/v1/text-to-speech/{voice_id}", json=payload)
         if response.status_code != 200:
-            raise ElevenLabsError(
-                f"ElevenLabs API error {response.status_code}: {response.text}"
-            )
+            raise ElevenLabsError(f"ElevenLabs API error {response.status_code}: {response.text}")
         return bytes(response.content)
 
     def close(self) -> None:

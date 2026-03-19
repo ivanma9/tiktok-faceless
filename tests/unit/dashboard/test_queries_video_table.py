@@ -129,8 +129,13 @@ def test_get_top_videos_by_commission_includes_required_keys(session):
     result = get_top_videos_by_commission(session, _ACCOUNT)
     assert len(result) == 1
     row = result[0]
-    for key in ("hook_archetype", "retention_3s_pct", "affiliate_ctr_pct", "commission_earned",
-                "lifecycle_state"):
+    for key in (
+        "hook_archetype",
+        "retention_3s_pct",
+        "affiliate_ctr_pct",
+        "commission_earned",
+        "lifecycle_state",
+    ):
         assert key in row
 
 
@@ -177,6 +182,13 @@ def test_get_tournament_niche_table_includes_required_keys(session):
     result = get_tournament_niche_table(session, _ACCOUNT)
     assert len(result) == 1
     row = result[0]
-    for key in ("rank", "niche", "video_count", "avg_ctr_pct", "avg_retention_3s_pct",
-                "total_revenue", "status"):
+    for key in (
+        "rank",
+        "niche",
+        "video_count",
+        "avg_ctr_pct",
+        "avg_retention_3s_pct",
+        "total_revenue",
+        "status",
+    ):
         assert key in row

@@ -1,6 +1,6 @@
 """Unit tests for send_phase_alert."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from tiktok_faceless.utils.alerts import send_phase_alert
 

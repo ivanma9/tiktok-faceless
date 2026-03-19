@@ -131,9 +131,7 @@ class TestGetUnresolvedErrors:
 
 class TestGetActiveSuppression:
     def test_returns_none_when_resolved(self, session):
-        session.add(
-            _error(error_type="suppression_detected", resolved_at=datetime.utcnow())
-        )
+        session.add(_error(error_type="suppression_detected", resolved_at=datetime.utcnow()))
         session.commit()
         result = get_active_suppression(session, "acc1")
         assert result is None

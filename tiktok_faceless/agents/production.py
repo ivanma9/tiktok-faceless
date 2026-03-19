@@ -5,7 +5,6 @@ Single public export: production_node(state) -> dict (state delta only).
 Implementation: Story 1.4 — Video Production Agent
 """
 
-import base64
 import os
 import uuid
 from pathlib import Path
@@ -104,7 +103,11 @@ def production_node(state: PipelineState) -> dict[str, Any]:
             ]
         }
 
-    niche = (state.selected_product or {}).get("niche", "unknown") if state.selected_product else "unknown"
+    niche = (
+        (state.selected_product or {}).get("niche", "unknown")
+        if state.selected_product
+        else "unknown"
+    )
     with get_session() as session:
         save_rendered_video(
             session,

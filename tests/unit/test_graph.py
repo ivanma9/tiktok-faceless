@@ -73,17 +73,15 @@ class TestBuildGraph:
                                         with patch(
                                             "tiktok_faceless.agents.production.CreatomateClient"
                                         ) as mock_cr:
-                                            mock_cr.return_value.submit_render.return_value = (
-                                                "job1"
-                                            )
+                                            mock_cr.return_value.submit_render.return_value = "job1"
                                             mock_cr.return_value.poll_status.return_value = (
                                                 "https://cdn.example.com/v.mp4"
                                             )
                                             with patch(
                                                 "tiktok_faceless.agents.production.Path"
                                             ) as mock_path:
-                                                mock_path.return_value.__truediv__ = (
-                                                    MagicMock(return_value=MagicMock())
+                                                mock_path.return_value.__truediv__ = MagicMock(
+                                                    return_value=MagicMock()
                                                 )
                                                 mock_path.return_value.__str__ = MagicMock(
                                                     return_value="/out/vid.mp4"
@@ -109,8 +107,7 @@ class TestBuildGraph:
                                                         return_value=True,
                                                     ):
                                                         with patch(
-                                                            "tiktok_faceless.agents.publishing"
-                                                            ".time"
+                                                            "tiktok_faceless.agents.publishing.time"
                                                         ) as mock_time:
                                                             mock_time.time.return_value = (
                                                                 9_999_999.0
@@ -126,9 +123,7 @@ class TestBuildGraph:
                                                                 ) as mock_tk2:
                                                                     mock_resp = MagicMock()
                                                                     mock_resp.video_id = "v1"
-                                                                    mock_tk2.return_value\
-                                                                        .post_video\
-                                                                        .return_value = mock_resp
+                                                                    mock_tk2.return_value.post_video.return_value = mock_resp  # noqa: E501
 
                                                                     graph = build_graph()
                                                                     state_dict = {
@@ -162,8 +157,7 @@ class TestGraphRouting:
     def test_route_after_orchestrator_errors_still_goes_to_script(self):
         """Errors alone do NOT halt pipeline — agent_health handles isolation."""
         state = PipelineState(
-            account_id="acc1",
-            errors=[AgentError(agent="production", error_type="E", message="m")]
+            account_id="acc1", errors=[AgentError(agent="production", error_type="E", message="m")]
         )
         assert _route_after_orchestrator(state) == "script"
 
@@ -174,4 +168,5 @@ class TestGraphRouting:
     def test_route_after_orchestrator_no_production_routing_function(self):
         """Production → publishing is a plain add_edge; no conditional routing function exists."""
         import tiktok_faceless.graph as g
+
         assert not hasattr(g, "_route_after_production")

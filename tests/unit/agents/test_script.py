@@ -27,6 +27,7 @@ def _patch_db():
     ):
         yield
 
+
 _PRODUCT = {
     "product_id": "p1",
     "product_name": "Widget Pro",
@@ -171,7 +172,7 @@ class TestScriptNodeHookVariants:
         assert "controversy" in archetypes
 
     def test_current_script_matches_selected_archetype(self) -> None:
-        """current_script is the variant for the selected archetype (curiosity_gap = first variant)."""
+        """current_script is the variant for the selected archetype (curiosity_gap = first variant)."""  # noqa: E501
         state = PipelineState(account_id="acc1", selected_product=_PRODUCT_WITH_BUYER_LANGUAGE)
         call_num = 0
 
@@ -234,8 +235,12 @@ def test_partial_success_returns_completed_variants() -> None:
     state = PipelineState(
         account_id="acc1",
         selected_product={
-            "product_id": "p1", "product_name": "Widget", "product_url": "u",
-            "commission_rate": 0.1, "sales_velocity_score": 0.5, "niche": "health",
+            "product_id": "p1",
+            "product_name": "Widget",
+            "product_url": "u",
+            "commission_rate": 0.1,
+            "sales_velocity_score": 0.5,
+            "niche": "health",
             "buyer_language": [],
         },
     )

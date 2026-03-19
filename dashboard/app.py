@@ -11,6 +11,7 @@ import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
 from dashboard.auth import check_password
+from dashboard.components.account_summary_table import render_account_summary_table
 from dashboard.components.milestone_banner import render_milestone_banners
 from dashboard.components.phase_badge import render_phase_badge
 from dashboard.components.suppression_alert import render_suppression_alert
@@ -29,7 +30,6 @@ from tiktok_faceless.db.queries import (
     get_videos_posted_today,
 )
 from tiktok_faceless.db.session import get_session
-from dashboard.components.account_summary_table import render_account_summary_table
 
 if not check_password():
     st.stop()

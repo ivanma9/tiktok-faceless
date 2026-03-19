@@ -21,6 +21,7 @@ def _patch_pause_helpers():
     ):
         yield
 
+
 _TOURNAMENT_START_PAST = time.time() - 15 * 86400.0  # 15 days ago (> 14 day threshold)
 _TOURNAMENT_START_RECENT = time.time() - 5 * 86400.0  # 5 days ago (< 14 day threshold)
 
@@ -260,9 +261,11 @@ class TestTournamentCompletion:
 
         inner = mock_sess.__enter__.return_value
         original_add = inner.add
+
         def tracking_add(obj: object) -> None:
             call_order.append("add")
             original_add(obj)
+
         inner.add = tracking_add
 
         with (

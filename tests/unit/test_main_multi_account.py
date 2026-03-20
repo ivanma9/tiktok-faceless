@@ -8,29 +8,28 @@ from tiktok_faceless.main import run_all_accounts, run_pipeline_for_account
 
 class TestRunPipelineForAccount:
     def test_run_pipeline_for_account_uses_correct_thread_id(self):
-        """graph.invoke is called with thread_id matching account_id."""
+        """graph.invoke is called with thread_id prefixed by account_id."""
         graph = MagicMock()
         mock_state = MagicMock()
         mock_state.model_dump.return_value = {"account_id": "acc-123"}
 
         with (
             patch("tiktok_faceless.main.load_account_config"),
-            patch("tiktok_faceless.main.PipelineState", return_value=mock_state) as mock_ps,
+            patch("tiktok_faceless.main.PipelineState", return_value=mock_state),
         ):
             run_pipeline_for_account("acc-123", graph)
-            mock_ps.assert_called_once_with(account_id="acc-123")
 
-        graph.invoke.assert_called_once_with(
-            mock_state.model_dump(), config={"configurable": {"thread_id": "acc-123"}}
-        )
+        assert graph.invoke.call_count == 1
+        thread_id = graph.invoke.call_args.kwargs["config"]["configurable"]["thread_id"]
+        assert thread_id.startswith("acc-123-")
 
     def test_run_pipeline_for_account_isolates_state(self):
         """Two calls with different account_ids use distinct thread_ids."""
         graph = MagicMock()
 
-        def make_state(account_id):
+        def make_state(**kwargs):
             s = MagicMock()
-            s.model_dump.return_value = {"account_id": account_id}
+            s.model_dump.return_value = {"account_id": kwargs.get("account_id")}
             return s
 
         with (
@@ -43,8 +42,8 @@ class TestRunPipelineForAccount:
         assert graph.invoke.call_count == 2
         calls = graph.invoke.call_args_list
         thread_ids = [c.kwargs["config"]["configurable"]["thread_id"] for c in calls]
-        assert thread_ids[0] == "acc-A"
-        assert thread_ids[1] == "acc-B"
+        assert thread_ids[0].startswith("acc-A-")
+        assert thread_ids[1].startswith("acc-B-")
         assert thread_ids[0] != thread_ids[1]
 
     def test_run_pipeline_for_account_catches_exception(self):

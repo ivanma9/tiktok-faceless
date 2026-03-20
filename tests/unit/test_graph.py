@@ -25,11 +25,17 @@ class TestBuildGraph:
         with (
             patch("tiktok_faceless.agents.orchestrator.get_session") as mock_gs,
             patch("tiktok_faceless.agents.orchestrator.get_paused_agents", return_value=[]),
+            patch("tiktok_faceless.graph.get_session"),
+            patch("tiktok_faceless.graph.get_pending_video", return_value=None),
+            patch("tiktok_faceless.agents.production.get_session") as mock_gs_prod,
+            patch("tiktok_faceless.agents.production.get_pending_video", return_value=None),
+            patch("tiktok_faceless.agents.production.save_rendered_video"),
         ):
             mock_ctx = MagicMock()
             mock_ctx.__enter__ = MagicMock(return_value=MagicMock())
             mock_ctx.__exit__ = MagicMock(return_value=False)
             mock_gs.return_value = mock_ctx
+            mock_gs_prod.return_value = mock_ctx
 
             with patch("tiktok_faceless.agents.script.load_account_config") as mock_cfg:
                 mock_cfg.return_value = MagicMock(anthropic_api_key="key")
@@ -150,16 +156,33 @@ class TestBuildGraph:
 
 
 class TestGraphRouting:
-    def test_route_after_orchestrator_clean_state_goes_to_script(self):
+    def test_route_after_orchestrator_clean_state_goes_to_research(self):
         state = PipelineState(account_id="acc1")
-        assert _route_after_orchestrator(state) == "script"
+        with (
+            patch("tiktok_faceless.graph.get_session"),
+            patch("tiktok_faceless.graph.get_pending_video", return_value=None),
+        ):
+            assert _route_after_orchestrator(state) == "research"
 
-    def test_route_after_orchestrator_errors_still_goes_to_script(self):
+    def test_route_after_orchestrator_pending_video_skips_to_production(self):
+        """When a rendered video exists, skip straight to production."""
+        state = PipelineState(account_id="acc1")
+        with (
+            patch("tiktok_faceless.graph.get_session"),
+            patch("tiktok_faceless.graph.get_pending_video", return_value=MagicMock()),
+        ):
+            assert _route_after_orchestrator(state) == "production"
+
+    def test_route_after_orchestrator_errors_still_goes_to_research(self):
         """Errors alone do NOT halt pipeline — agent_health handles isolation."""
         state = PipelineState(
             account_id="acc1", errors=[AgentError(agent="production", error_type="E", message="m")]
         )
-        assert _route_after_orchestrator(state) == "script"
+        with (
+            patch("tiktok_faceless.graph.get_session"),
+            patch("tiktok_faceless.graph.get_pending_video", return_value=None),
+        ):
+            assert _route_after_orchestrator(state) == "research"
 
     def test_route_after_orchestrator_published_routes_to_end(self):
         state = PipelineState(account_id="acc1", published_video_id="vid123")

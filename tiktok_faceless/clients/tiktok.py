@@ -117,7 +117,7 @@ class TikTokAPIClient:
         init_response = self._http.post(
             "/v2/post/publish/video/init/",
             json={
-                "post_info": {"title": caption, "privacy_level": "PUBLIC_TO_EVERYONE"},
+                "post_info": {"title": caption, "privacy_level": "SELF_ONLY"},
                 "source_info": {
                     "source": "FILE_UPLOAD",
                     "video_size": file_size,

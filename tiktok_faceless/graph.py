@@ -18,17 +18,23 @@ from tiktok_faceless.agents.production import production_node
 from tiktok_faceless.agents.publishing import publishing_node
 from tiktok_faceless.agents.research import research_node
 from tiktok_faceless.agents.script import script_node
+from tiktok_faceless.db.queries import get_pending_video
+from tiktok_faceless.db.session import get_session
 from tiktok_faceless.state import PipelineState
 
 
 def _route_after_orchestrator(state: PipelineState) -> str:
     """Route to END only when a video has already been published (duplicate-publish guard).
 
-    Errors alone do NOT halt the pipeline — the orchestrator persists them to DB
-    and updates agent_health; routing continues to 'script' on every cycle.
+    Short-circuits to 'production' (skipping research/script/monetization) when a
+    rendered-but-unposted video already exists in the DB — saves API quota.
     """
     if state.published_video_id is not None:
         return END
+    with get_session() as session:
+        pending = get_pending_video(session, state.account_id)
+    if pending is not None:
+        return "production"
     return "research"
 
 

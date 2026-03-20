@@ -12,6 +12,7 @@ import logging
 import logging.config
 import sys
 import time
+from typing import Any
 
 from langgraph.graph.state import CompiledStateGraph
 
@@ -62,7 +63,9 @@ def _run_resume(account_id: str, agent: str) -> None:
     send_resume_alert(account_id=account_id, agent=agent, config=config)
 
 
-def run_pipeline_for_account(account_id: str, graph: CompiledStateGraph) -> None:
+def run_pipeline_for_account(
+    account_id: str, graph: CompiledStateGraph[Any, Any, Any, Any]
+) -> None:
     """Run the pipeline for a single account using an isolated thread_id."""
     config = load_account_config(account_id)
     initial_state = PipelineState(
@@ -80,7 +83,7 @@ def run_pipeline_for_account(account_id: str, graph: CompiledStateGraph) -> None
         logger.error("Pipeline failed for account %s: %s", account_id, e)
 
 
-def run_all_accounts(graph: CompiledStateGraph) -> None:
+def run_all_accounts(graph: CompiledStateGraph[Any, Any, Any, Any]) -> None:
     """Fetch all active accounts and run the pipeline for each serially."""
     with get_session() as session:
         account_ids = [a.account_id for a in get_active_accounts(session)]

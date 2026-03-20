@@ -24,4 +24,4 @@ def compute_fyp_reach_rate(session: Session, account_id: str, window: int = 10) 
     )
     if not rows:
         return 1.0
-    return sum(r.fyp_reach_pct for r in rows) / len(rows)
+    return float(sum(r.fyp_reach_pct for r in rows) / len(rows))

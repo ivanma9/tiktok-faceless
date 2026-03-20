@@ -9,6 +9,7 @@ Implementation: Story 1.3 — External API Client Wrappers
 """
 
 import logging
+from typing import Any
 
 import httpx
 import tenacity
@@ -58,11 +59,11 @@ llm_retry = retry(
 
 
 def make_api_retry(
-    retryable_exceptions: tuple,
+    retryable_exceptions: tuple[type[BaseException], ...],
     max_attempts: int = 3,
     backoff_multiplier: int = 4,
     backoff_max_seconds: int = 30,
-):
+) -> Any:
     """Factory for configurable API retry decorator.
 
     Args:

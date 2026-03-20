@@ -9,6 +9,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta
+from typing import Any, Optional, cast
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -246,7 +247,7 @@ def get_archetype_scores(
 def write_agent_errors(
     session: Session,
     account_id: str,
-    errors: list,  # list[AgentError] — avoid circular import with state.py
+    errors: "list[Any]",  # list[AgentError] — avoid circular import with state.py
 ) -> None:
     """Persist AgentError state entries to the errors DB table.
 
@@ -267,7 +268,7 @@ def write_agent_errors(
         session.commit()
 
 
-def get_active_errors(session: Session, account_id: str) -> list:
+def get_active_errors(session: Session, account_id: str) -> list[Any]:
     """Return Error rows with resolved_at IS NULL for the given account.
 
     Used for dashboard queries to show unresolved failures.
@@ -318,7 +319,7 @@ def resolve_agent_errors(session: Session, account_id: str, agent: str) -> None:
 def get_paused_agents(session: Session, account_id: str) -> list[str]:
     """Return list of paused agent names for the account."""
     account = session.query(Account).filter_by(account_id=account_id).one()
-    return json.loads(account.paused_agent_queues or "[]")
+    return list(json.loads(account.paused_agent_queues or "[]"))
 
 
 def get_last_post_time(session: Session, account_id: str) -> datetime | None:
@@ -332,7 +333,7 @@ def get_last_post_time(session: Session, account_id: str) -> datetime | None:
         )
         .scalar()
     )
-    return result
+    return cast(Optional[datetime], result)
 
 
 def get_videos_posted_today(session: Session, account_id: str) -> int:
@@ -629,7 +630,7 @@ def get_kpi_freshness(session: Session, account_id: str) -> datetime | None:
         .filter(VideoMetric.account_id == account_id)
         .scalar()
     )
-    return result
+    return cast(Optional[datetime], result)
 
 
 def get_kpi_prior_retention_3s(session: Session, account_id: str, days: int = 7) -> float | None:
@@ -726,7 +727,7 @@ def get_top_videos_by_commission(
     session: Session,
     account_id: str,
     limit: int = 20,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Return top N videos by total commission earned, descending.
 
     Joins Video + VideoMetric + Product (optional) to compute commission.
@@ -776,7 +777,7 @@ def get_tournament_niche_table(
     session: Session,
     account_id: str,
     days: int = 7,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Return niche tournament rankings with status assignment.
 
     Returns list of dicts with keys:
@@ -978,7 +979,7 @@ def get_monthly_revenue(session: Session, account_id: str) -> float:
     return float(result or 0.0)
 
 
-def get_account_summary_row(session: Session, account_id: str) -> dict:
+def get_account_summary_row(session: Session, account_id: str) -> dict[str, Any]:
     """Return a summary dict for one account for the dashboard portfolio table."""
     account = session.query(Account).filter_by(account_id=account_id).first()
     if account is None:
@@ -1022,7 +1023,8 @@ def get_account_summary_row(session: Session, account_id: str) -> dict:
         .order_by(Video.posted_at.desc())
         .first()
     )
-    last_post_timedelta = (now - last_video.posted_at) if last_video is not None else None
+    posted_at = last_video.posted_at if last_video is not None else None
+    last_post_timedelta = (now - posted_at) if posted_at is not None else None
 
     return {
         "account_id": account_id,

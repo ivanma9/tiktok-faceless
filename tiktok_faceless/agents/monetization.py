@@ -8,7 +8,10 @@ Implementation: Story 1.5 — Basic Script & Affiliate Link Generation
 import time
 import uuid
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 from tiktok_faceless.clients import TikTokAPIError, TikTokAuthError, TikTokRateLimitError
 from tiktok_faceless.clients.tiktok import TikTokAPIClient
@@ -20,9 +23,9 @@ from tiktok_faceless.utils.recovery import get_recovery_suggestion
 
 
 def _reconcile_commissions(
-    session,
+    session: "Session",
     account_id: str,
-    orders: list,
+    orders: list[Any],
     tolerance: float,
 ) -> None:
     """Compare aggregate system clicks vs TikTok order count for last 7 days.

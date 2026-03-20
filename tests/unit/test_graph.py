@@ -142,6 +142,8 @@ class TestBuildGraph:
                                                                             "niche": "health",
                                                                             "sales_velocity_score": 1.0,  # noqa: E501
                                                                         },
+                                                                        # Skip reconciliation
+                                                                        "last_reconciliation_at": 9_999_999_999.0,
                                                                     }
                                                                     result = graph.invoke(
                                                                         state_dict,
